@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Study Smart App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f0fff0;
+      padding: 20px;
+    }
+    h1 {
+      color: #2e8b57;
+    }
+    input, button {
+      margin: 10px;
+    }
+    #output {
+      margin-top: 20px;
+      text-align: left;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .card {
+      background-color: #ffffff;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: #2e8b57;
+      color: #fff;
+      padding: 12px 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      z-index: 1000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 30px;
+    }
+    .logo {
+      font-weight: bold;
+      font-size: 1.3em;
+    }
+    .nav-desc {
+      font-size: 1em;
+      opacity: 0.85;
+    }
+    .main-content {
+      margin-top: 70px; /* space for navbar */
+    }
+    #camera-container {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      margin: 20px 0;
+    }
+    #video {
+      width: 320px;
+      height: 240px;
+      border: 1px solid #aaa;
+      border-radius: 8px;
+      background: #222;
+    }
+    #capture-btn {
+      margin-top: 10px;
+    }
+    .big-btn {
+      font-size: 1.2em;
+      padding: 16px 32px;
+      margin: 16px 8px;
+      border-radius: 8px;
+      border: none;
+      background: #2e8b57;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .big-btn:hover {
+      background: #246b45;
+    }
+    @media (max-width: 600px) {
+      .navbar {
+        flex-direction: column;
+        gap: 5px;
+        font-size: 0.95em;
+      }
+      .main-content, #output {
+        max-width: 98vw;
+        padding: 0 2vw;
+      }
+      #video {
+        width: 95vw;
+        height: 60vw;
+      }
+    }
+  </style>
+  <!-- Tesseract.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+  <nav class="navbar">
+    <span class="logo">📚 Study Smart</span>
+    <span class="nav-desc">Turn your notes into flashcards & quizzes!</span>
+  </nav>
+  <div class="main-content">
+    <h1>📚 Study Smart</h1>
+    <p>Upload your notes, or scan a document to turn them into flashcards and quizzes!</p>
+
+    <div id="main-buttons">
+      <input type="file" id="fileInput" accept=".txt,.pdf,image/*" class="big-btn"/>
+      <button id="generateBtn" class="big-btn" onclick="handleFile()">Generate</button>
+      <button id="scanBtn" class="big-btn" onclick="openCamera()">Scan with Camera</button>
+    </div>
+    <div id="mode-buttons" style="display:none;">
+      <button class="big-btn" onclick="showFlashcards()">Flashcards</button>
+      <button class="big-btn" onclick="showQuiz()">Quiz</button>
+    </div>
+
+    <div id="camera-container">
+      <video id="video" autoplay></video>
+      <button id="capture-btn" onclick="captureImage()">Capture & Scan</button>
+      <canvas id="canvas" style="display:none;"></canvas>
+      <button onclick="closeCamera()" style="margin-top:10px;">Close Camera</button>
+    </div>
+
+    <div id="output"></div>
+  </div>
+
+  <script>
+    // Camera and OCR logic
+    let stream = null;
+
+    function openCamera() {
+      document.getElementById('camera-container').style.display = 'flex';
+      const video = document.getElementById('video');
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(s => {
+          stream = s;
+          video.srcObject = stream;
+        })
+        .catch(err => {
+          alert('Could not access camera: ' + err);
+        });
+    }
+
+    function closeCamera() {
+      document.getElementById('camera-container').style.display = 'none';
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+    }
+
+    function captureImage() {
+      const video = document.getElementById('video');
+      const canvas = document.getElementById('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      closeCamera();
+      processImage(canvas);
+    }
+
+    function processImage(canvas) {
+      const output = document.getElementById('output');
+      output.innerHTML = "<em>Scanning image...</em>";
+      Tesseract.recognize(
+        canvas,
+        'eng',
+        { logger: m => { /* Optionally log progress */ } }
+      ).then(({ data: { text } }) => {
+        if (!text.trim()) {
+          output.innerHTML = "<em>No text detected in image.</em>";
+          return;
+        }
+        generateStudyMaterial(text);
+      }).catch(err => {
+        output.innerHTML = "<em>OCR failed: " + err + "</em>";
+      });
+    }
+
+    // File upload logic (modified)
+    function handleFile() {
+      const file = document.getElementById("fileInput").files[0];
+      const output = document.getElementById("output");
+      if (!file) return alert("Please select a file");
+
+      output.innerHTML = "<em>Processing...</em>";
+
+      if (file.type && file.type.startsWith("image/")) {
+        const img = new Image();
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          img.onload = function () {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+            processImage(canvas);
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      } else if (file.type === "application/pdf") {
+        alert("PDF support coming soon. Use a .txt or image file for now.");
+        output.innerHTML = "";
+      } else {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const text = e.target.result;
+          if (!text.trim()) {
+            output.innerHTML = "<em>File is empty.</em>";
+            return;
+          }
+          generateStudyMaterial(text);
+        };
+        reader.readAsText(file);
+      }
+
+      // Hide main buttons and show mode buttons
+      document.getElementById("main-buttons").style.display = "none";
+      document.getElementById("mode-buttons").style.display = "block";
+    }
+
+    // Store flashcards and quiz globally
+    let flashcardsData = [];
+    let quizData = [];
+
+    function generateStudyMaterial(text) {
+      const lines = text.split("\n").filter(line => line.trim() !== "");
+      flashcardsData = lines.map((line, i) => ({
+        question: `What is the key idea in: "${line.slice(0, 50)}..."?`,
+        answer: line
+      }));
+
+      quizData = flashcardsData.map((card, i) => ({
+        question: card.question,
+        choices: [
+          card.answer,
+          "This is a wrong answer",
+          "Not quite right",
+          "Totally off"
+        ].sort(() => Math.random() - 0.5),
+        correct: card.answer
+      }));
+
+      // Show flashcards by default
+      showFlashcards();
+    }
+
+    function showFlashcards() {
+      const output = document.getElementById("output");
+      output.innerHTML = `<h2>Flashcards</h2>`;
+      flashcardsData.forEach(card => {
+        output.innerHTML += `<div class="card"><strong>Q:</strong> ${card.question}<br/><strong>A:</strong> ${card.answer}</div>`;
+      });
+    }
+
+    function showQuiz() {
+      const output = document.getElementById("output");
+      output.innerHTML = `<h2>Quiz</h2>`;
+      quizData.forEach(q => {
+        output.innerHTML += `<div class="card"><strong>${q.question}</strong><ul>` +
+          q.choices.map(choice => `<li>${choice}</li>`).join("") + `</ul></div>`;
+      });
+    }
+  </script>
+</body>
+</html>
