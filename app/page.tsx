@@ -27,7 +27,6 @@ export default function Home() {
   const [currentFlashcard, setCurrentFlashcard] = useState(0)
   const [currentQuiz, setCurrentQuiz] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
-  const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
   const [quizFeedback, setQuizFeedback] = useState<string | null>(null)
   const [imageCanvases, setImageCanvases] = useState<HTMLCanvasElement[]>([])
   const [quizAnswers, setQuizAnswers] = useState<(string | null)[]>([])
@@ -155,7 +154,6 @@ export default function Home() {
   const handleQuizChoice = (choice: string) => {
     const globalIndex = quizSetIndex * QUESTIONS_PER_SET + currentQuiz
     const correct = choice === quizzes[globalIndex].correct
-    setSelectedChoice(choice)
     setQuizFeedback(correct ? '✅ Correct!' : '❌ Incorrect')
     setQuizAnswers((prev) => {
       const updated = [...prev]
