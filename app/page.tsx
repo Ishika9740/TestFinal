@@ -20,6 +20,9 @@ export default function Home() {
   const [showModes, setShowModes] = useState(false)
   const [outputHTML, setOutputHTML] = useState('')
   const [showCamera, setShowCamera] = useState(false)
+  const [showFlashcardMode, setShowFlashcardMode] = useState(false)
+  const [currentFlashcard, setCurrentFlashcard] = useState(0)
+  const [isFlipped, setIsFlipped] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -86,21 +89,23 @@ export default function Home() {
     }))
     setFlashcards(flash)
     setQuizzes(quiz)
-    renderFlashcards(flash)
+    setShowFlashcardMode(false)
+    setOutputHTML('')
+    setCurrentFlashcard(0)
+    setIsFlipped(false)
   }
 
-  const renderFlashcards = (cards: Flashcard[]) => {
-    setOutputHTML(`<h2>Flashcards</h2>` + cards.map(card =>
-      `<div class="card"><strong>Q:</strong> ${card.question}<br/><strong>A:</strong> ${card.answer}</div>`
-    ).join(''))
-  }
-
-  const renderQuizzes = (questions: Quiz[]) => {
-    setOutputHTML(`<h2>Quiz</h2>` + questions.map(q =>
-      `<div class="card"><strong>${q.question}</strong><ul>` +
-      q.choices.map((c: string) => `<li>${c}</li>`).join('') +
-      `</ul></div>`
-    ).join(''))
+  const processImage = (canvas: HTMLCanvasElement) => {
+    setOutputHTML('<em>Scanning image...</em>')
+    Tesseract.recognize(canvas, 'eng').then(({ data: { text } }) => {
+      if (!text.trim()) {
+        setOutputHTML('<em>No text detected in image.</em>')
+        return
+      }
+      generateStudyMaterial(text)
+    }).catch((err) => {
+      setOutputHTML(`<em>OCR failed: ${err}</em>`)
+    })
   }
 
   const openCamera = async () => {
@@ -134,17 +139,30 @@ export default function Home() {
     processImage(canvas)
   }
 
-  const processImage = (canvas: HTMLCanvasElement) => {
-    setOutputHTML('<em>Scanning image...</em>')
-    Tesseract.recognize(canvas, 'eng').then(({ data: { text } }) => {
-      if (!text.trim()) {
-        setOutputHTML('<em>No text detected in image.</em>')
-        return
-      }
-      generateStudyMaterial(text)
-    }).catch((err) => {
-      setOutputHTML(`<em>OCR failed: ${err}</em>`)
-    })
+  // Flashcard navigation handlers
+  const handlePrev = () => {
+    setCurrentFlashcard((prev) => Math.max(prev - 1, 0))
+    setIsFlipped(false)
+  }
+  const handleNext = () => {
+    setCurrentFlashcard((prev) => Math.min(prev + 1, flashcards.length - 1))
+    setIsFlipped(false)
+  }
+  const handleFlip = () => setIsFlipped((f) => !f)
+
+  const renderQuizzes = (questions: Quiz[]) => {
+    setShowFlashcardMode(false)
+    setOutputHTML(
+      `<h2>Quiz</h2>` +
+        questions
+          .map(
+            (q) =>
+              `<div class="card"><strong>${q.question}</strong><ul>` +
+              q.choices.map((c: string) => `<li>${c}</li>`).join('') +
+              `</ul></div>`
+          )
+          .join('')
+    )
   }
 
   return (
@@ -166,8 +184,77 @@ export default function Home() {
 
         {showModes && (
           <div style={{ marginTop: 20 }}>
-            <button onClick={() => renderFlashcards(flashcards)} style={styles.button}>Flashcards</button>
-            <button onClick={() => renderQuizzes(quizzes)} style={styles.button}>Quiz</button>
+            <button
+              onClick={() => {
+                setShowFlashcardMode(true)
+                setIsFlipped(false)
+                setCurrentFlashcard(0)
+                setOutputHTML('')
+              }}
+              style={styles.button}
+            >
+              Flashcards
+            </button>
+            <button
+              onClick={() => {
+                setShowFlashcardMode(false)
+                renderQuizzes(quizzes)
+              }}
+              style={styles.button}
+            >
+              Quiz
+            </button>
+          </div>
+        )}
+
+        {showFlashcardMode && flashcards.length > 0 && (
+          <div style={{ margin: '30px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div
+              style={{
+                ...styles.card,
+                minHeight: 180,
+                minWidth: 320,
+                maxWidth: 600,
+                fontSize: 'clamp(1.3rem, 3vw, 2.2rem)',
+                background: isFlipped ? '#4682b4' : '#2e8b57',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 20,
+                cursor: 'pointer',
+                userSelect: 'none',
+                transition: 'background 0.3s',
+              }}
+              onClick={handleFlip}
+              tabIndex={0}
+              aria-label="Flashcard"
+            >
+              {isFlipped
+                ? flashcards[currentFlashcard].answer
+                : flashcards[currentFlashcard].question}
+            </div>
+            <div>
+              <button
+                onClick={handlePrev}
+                style={{ ...styles.button, marginRight: 10 }}
+                disabled={currentFlashcard === 0}
+              >
+                Previous
+              </button>
+              <span style={{ fontSize: 'clamp(1rem, 2vw, 1.2rem)' }}>
+                {currentFlashcard + 1} / {flashcards.length}
+              </span>
+              <button
+                onClick={handleNext}
+                style={{ ...styles.button, marginLeft: 10 }}
+                disabled={currentFlashcard === flashcards.length - 1}
+              >
+                Next
+              </button>
+            </div>
+            <div style={{ marginTop: 10, fontSize: 'clamp(0.9rem, 1.5vw, 1.1rem)', color: '#555' }}>
+              Click the card to flip between question and answer.
+            </div>
           </div>
         )}
 
@@ -180,7 +267,9 @@ export default function Home() {
           </div>
         )}
 
-        <div id="output" dangerouslySetInnerHTML={{ __html: outputHTML }} style={styles.output} />
+        {!showFlashcardMode && (
+          <div id="output" dangerouslySetInnerHTML={{ __html: outputHTML }} style={styles.output} />
+        )}
       </div>
     </div>
   )
