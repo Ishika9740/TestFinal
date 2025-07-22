@@ -14,6 +14,8 @@ type Quiz = {
   correct: string
 }
 
+const QUESTIONS_PER_SET = 10
+
 export default function Home() {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([])
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
@@ -27,6 +29,11 @@ export default function Home() {
   const [isFlipped, setIsFlipped] = useState(false)
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
   const [quizFeedback, setQuizFeedback] = useState<string | null>(null)
+  const [imageCanvases, setImageCanvases] = useState<HTMLCanvasElement[]>([])
+  const [quizAnswers, setQuizAnswers] = useState<(string | null)[]>([])
+  const [quizResults, setQuizResults] = useState<(boolean | null)[]>([])
+  const [quizSetIndex, setQuizSetIndex] = useState(0)
+  const [showQuizReview, setShowQuizReview] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -41,43 +48,47 @@ export default function Home() {
   }, [])
 
   const handleFile = () => {
-    const file = fileInputRef.current?.files?.[0]
-    if (!file) return alert('Please select a file')
+    const files = fileInputRef.current?.files
+    if (!files || files.length === 0) return alert('Please select file(s)')
 
     setOutputHTML('<em>Processing...</em>')
 
-    if (file.type.startsWith('image/')) {
-      const img = new Image()
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        img.onload = () => {
-          const canvas = document.createElement('canvas')
-          canvas.width = img.width
-          canvas.height = img.height
-          const ctx = canvas.getContext('2d')
-          ctx?.drawImage(img, 0, 0)
-          processImage(canvas)
+    const imageFiles: File[] = []
+    let textContent = ''
+
+    const processNext = (index: number) => {
+      if (index >= files.length) {
+        // All files processed
+        if (imageFiles.length > 0) {
+          processMultipleImages(imageFiles)
+        } else if (textContent) {
+          generateStudyMaterial(textContent)
         }
-        img.src = e.target?.result as string
+        setShowModes(true)
+        return
       }
-      reader.readAsDataURL(file)
-    } else if (file.type === 'application/pdf') {
-      alert('PDF support coming soon. Use a .txt or image file for now.')
-      setOutputHTML('')
-    } else {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const text = e.target?.result as string
-        if (!text.trim()) {
-          setOutputHTML('<em>File is empty.</em>')
-          return
+      const file = files[index]
+      if (file.type.startsWith('image/')) {
+        imageFiles.push(file)
+        processNext(index + 1)
+      } else if (file.type === 'application/pdf') {
+        alert('PDF support coming soon. Use a .txt or image file for now.')
+        setOutputHTML('')
+        processNext(index + 1)
+      } else {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          const text = e.target?.result as string
+          if (text && text.trim()) {
+            textContent += '\n' + text
+          }
+          processNext(index + 1)
         }
-        generateStudyMaterial(text)
+        reader.readAsText(file)
       }
-      reader.readAsText(file)
     }
 
-    setShowModes(true)
+    processNext(0)
   }
 
   const generateStudyMaterial = (text: string) => {
@@ -99,19 +110,6 @@ export default function Home() {
     setIsFlipped(false)
   }
 
-  const processImage = (canvas: HTMLCanvasElement) => {
-    setOutputHTML('<em>Scanning image...</em>')
-    Tesseract.recognize(canvas, 'eng').then(({ data: { text } }) => {
-      if (!text.trim()) {
-        setOutputHTML('<em>No text detected in image.</em>')
-        return
-      }
-      generateStudyMaterial(text)
-    }).catch((err) => {
-      setOutputHTML(`<em>OCR failed: ${err}</em>`)
-    })
-  }
-
   const openCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true })
@@ -131,25 +129,16 @@ export default function Home() {
     setShowCamera(false)
   }
 
-  const captureImage = () => {
-    const video = videoRef.current
-    const canvas = canvasRef.current
-    if (!video || !canvas) return
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    const ctx = canvas.getContext('2d')
-    ctx?.drawImage(video, 0, 0, canvas.width, canvas.height)
-    closeCamera()
-    processImage(canvas)
-  }
-
   // When switching to quiz mode, reset quiz state
   const startQuiz = () => {
     setShowQuizMode(true)
     setShowFlashcardMode(false)
     setCurrentQuiz(0)
-    setSelectedChoice(null)
+    setQuizSetIndex(0)
+    setQuizAnswers(Array(quizzes.length).fill(null))
+    setQuizResults(Array(quizzes.length).fill(null))
     setQuizFeedback(null)
+    setShowQuizReview(false)
     setOutputHTML('')
   }
 
@@ -164,22 +153,40 @@ export default function Home() {
 
   // Quiz handlers
   const handleQuizChoice = (choice: string) => {
+    const globalIndex = quizSetIndex * QUESTIONS_PER_SET + currentQuiz
+    const correct = choice === quizzes[globalIndex].correct
     setSelectedChoice(choice)
-    if (choice === quizzes[currentQuiz].correct) {
-      setQuizFeedback('✅ Correct!')
-    } else {
-      setQuizFeedback('❌ Incorrect')
-    }
+    setQuizFeedback(correct ? '✅ Correct!' : '❌ Incorrect')
+    setQuizAnswers((prev) => {
+      const updated = [...prev]
+      updated[globalIndex] = choice
+      return updated
+    })
+    setQuizResults((prev) => {
+      const updated = [...prev]
+      updated[globalIndex] = correct
+      return updated
+    })
   }
   const handleQuizNext = () => {
-    setCurrentQuiz((prev) => Math.min(prev + 1, quizzes.length - 1))
-    setSelectedChoice(null)
-    setQuizFeedback(null)
+    if (currentQuiz < Math.min(QUESTIONS_PER_SET, quizzes.length - quizSetIndex * QUESTIONS_PER_SET) - 1) {
+      setCurrentQuiz((prev) => prev + 1)
+      setQuizFeedback(null)
+    } else {
+      setShowQuizReview(true)
+    }
   }
   const handleQuizPrev = () => {
-    setCurrentQuiz((prev) => Math.max(prev - 1, 0))
-    setSelectedChoice(null)
+    if (currentQuiz > 0) {
+      setCurrentQuiz((prev) => prev - 1)
+      setQuizFeedback(null)
+    }
+  }
+  const handleNextQuizSet = () => {
+    setQuizSetIndex((prev) => prev + 1)
+    setCurrentQuiz(0)
     setQuizFeedback(null)
+    setShowQuizReview(false)
   }
 
   // Flashcard navigation handlers
@@ -193,6 +200,54 @@ export default function Home() {
   }
   const handleFlip = () => setIsFlipped((f) => !f)
 
+  const handleBackToHome = () => {
+    setShowFlashcardMode(false)
+    setShowQuizMode(false)
+    setShowModes(false)
+    setOutputHTML('')
+    setCurrentFlashcard(0)
+    setCurrentQuiz(0)
+    setIsFlipped(false)
+    setQuizFeedback(null)
+  }
+
+  const processMultipleImages = (files: File[]) => {
+    setOutputHTML('<em>Scanning images...</em>')
+    const ocrResults: string[] = []
+    let processed = 0
+
+    files.forEach((file, idx) => {
+      const img = new Image()
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = img.width
+          canvas.height = img.height
+          const ctx = canvas.getContext('2d')
+          ctx?.drawImage(img, 0, 0)
+          Tesseract.recognize(canvas, 'eng').then(({ data: { text } }) => {
+            ocrResults[idx] = text
+            processed++
+            if (processed === files.length) {
+              const allText = ocrResults.join('\n')
+              generateStudyMaterial(allText)
+            }
+          }).catch(() => {
+            ocrResults[idx] = ''
+            processed++
+            if (processed === files.length) {
+              const allText = ocrResults.join('\n')
+              generateStudyMaterial(allText)
+            }
+          })
+        }
+        img.src = e.target?.result as string
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
   return (
     <div style={styles.body}>
       <nav style={styles.navbar}>
@@ -205,7 +260,7 @@ export default function Home() {
         <p style={styles.subtitle}>Upload your notes, or scan a document to turn them into flashcards and quizzes!</p>
 
         <div style={{ display: showModes ? 'none' : 'block' }}>
-          <input type="file" ref={fileInputRef} accept=".txt,.pdf,image/*" className="big-btn" />
+          <input type="file" ref={fileInputRef} accept=".txt,.pdf,image/*" className="big-btn" multiple />
           <button onClick={handleFile} style={styles.button}>Generate</button>
           <button onClick={openCamera} style={styles.button}>Scan with Camera</button>
         </div>
@@ -220,6 +275,9 @@ export default function Home() {
         {/* Flashcard Mode */}
         {showFlashcardMode && flashcards.length > 0 && (
           <div style={styles.centeredColumn}>
+            <button onClick={handleBackToHome} style={{ ...styles.button, alignSelf: 'flex-start', marginBottom: 24 }}>
+              ← Back
+            </button>
             <div
               style={{
                 ...styles.card,
@@ -275,65 +333,141 @@ export default function Home() {
         {/* Quiz Mode */}
         {showQuizMode && quizzes.length > 0 && (
           <div style={styles.centeredColumn}>
-            <div style={styles.quizCard}>
-              <div style={styles.quizQuestion}>
-                {quizzes[currentQuiz].question}
-              </div>
-              <div style={styles.quizChoices}>
-                {quizzes[currentQuiz].choices.map((choice) => (
+            <button onClick={handleBackToHome} style={{ ...styles.button, alignSelf: 'flex-start', marginBottom: 24 }}>
+              ← Back
+            </button>
+            {!showQuizReview ? (
+              <div style={styles.quizCard}>
+                <div style={styles.quizQuestion}>
+                  {quizzes[quizSetIndex * QUESTIONS_PER_SET + currentQuiz].question}
+                </div>
+                <div style={styles.quizChoices}>
+                  {quizzes[quizSetIndex * QUESTIONS_PER_SET + currentQuiz].choices.map((choice) => (
+                    <button
+                      key={choice}
+                      style={{
+                        ...styles.quizChoiceButton,
+                        background:
+                          quizAnswers[quizSetIndex * QUESTIONS_PER_SET + currentQuiz] === choice
+                            ? (choice === quizzes[quizSetIndex * QUESTIONS_PER_SET + currentQuiz].correct ? '#2ecc40' : '#e74c3c')
+                            : '#f9f9f9',
+                        color:
+                          quizAnswers[quizSetIndex * QUESTIONS_PER_SET + currentQuiz] === choice
+                            ? '#fff'
+                            : '#2e8b57',
+                        border:
+                          quizAnswers[quizSetIndex * QUESTIONS_PER_SET + currentQuiz] === choice
+                            ? '2px solid #2e8b57'
+                            : '2px solid #ccc',
+                        pointerEvents: quizAnswers[quizSetIndex * QUESTIONS_PER_SET + currentQuiz] ? 'none' : 'auto',
+                      }}
+                      onClick={() => handleQuizChoice(choice)}
+                    >
+                      {choice}
+                    </button>
+                  ))}
+                </div>
+                {quizFeedback && (
+                  <div style={styles.quizFeedback}>{quizFeedback}</div>
+                )}
+                <div style={styles.progressBarWrap}>
+                  <div style={{
+                    ...styles.progressBar,
+                    width: `${((currentQuiz + 1) / Math.min(QUESTIONS_PER_SET, quizzes.length - quizSetIndex * QUESTIONS_PER_SET)) * 100}%`
+                  }} />
+                </div>
+                <div>
                   <button
-                    key={choice}
-                    style={{
-                      ...styles.quizChoiceButton,
-                      background:
-                        selectedChoice === choice
-                          ? (choice === quizzes[currentQuiz].correct ? '#2ecc40' : '#e74c3c')
-                          : '#f9f9f9',
-                      color:
-                        selectedChoice === choice
-                          ? '#fff'
-                          : '#2e8b57',
-                      border:
-                        selectedChoice === choice
-                          ? '2px solid #2e8b57'
-                          : '2px solid #ccc',
-                      pointerEvents: selectedChoice ? 'none' : 'auto',
-                    }}
-                    onClick={() => handleQuizChoice(choice)}
+                    onClick={handleQuizPrev}
+                    style={{ ...styles.button, marginRight: 10 }}
+                    disabled={currentQuiz === 0}
                   >
-                    {choice}
+                    Previous
                   </button>
-                ))}
+                  <span style={styles.progressText}>
+                    {currentQuiz + 1} / {Math.min(QUESTIONS_PER_SET, quizzes.length - quizSetIndex * QUESTIONS_PER_SET)}
+                  </span>
+                  <button
+                    onClick={handleQuizNext}
+                    style={{ ...styles.button, marginLeft: 10 }}
+                    disabled={!quizAnswers[quizSetIndex * QUESTIONS_PER_SET + currentQuiz]}
+                  >
+                    {currentQuiz === Math.min(QUESTIONS_PER_SET, quizzes.length - quizSetIndex * QUESTIONS_PER_SET) - 1 ? 'Review' : 'Next'}
+                  </button>
+                </div>
               </div>
-              {quizFeedback && (
-                <div style={styles.quizFeedback}>{quizFeedback}</div>
-              )}
-              <div style={styles.progressBarWrap}>
-                <div style={{
-                  ...styles.progressBar,
-                  width: `${((currentQuiz + 1) / quizzes.length) * 100}%`
-                }} />
+            ) : (
+              <div style={styles.quizCard}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: 16, color: '#4f8cff' }}>
+                  Review: Set {quizSetIndex + 1}
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <span style={{ color: '#43e97b', fontWeight: 700 }}>
+                    Correct: {
+                      quizResults.slice(
+                        quizSetIndex * QUESTIONS_PER_SET,
+                        quizSetIndex * QUESTIONS_PER_SET + QUESTIONS_PER_SET
+                      ).filter(Boolean).length
+                    }
+                  </span>
+                  <span style={{ margin: '0 16px', color: '#ff5e62', fontWeight: 700 }}>
+                    Incorrect: {
+                      quizResults.slice(
+                        quizSetIndex * QUESTIONS_PER_SET,
+                        quizSetIndex * QUESTIONS_PER_SET + QUESTIONS_PER_SET
+                      ).filter((v) => v === false).length
+                    }
+                  </span>
+                </div>
+                <div>
+                  {quizzes.slice(
+                    quizSetIndex * QUESTIONS_PER_SET,
+                    quizSetIndex * QUESTIONS_PER_SET + QUESTIONS_PER_SET
+                  ).map((q, idx) => {
+                    const globalIdx = quizSetIndex * QUESTIONS_PER_SET + idx
+                    const userAnswer = quizAnswers[globalIdx]
+                    const isCorrect = quizResults[globalIdx]
+                    return (
+                      <div key={q.question} style={{
+                        marginBottom: 12,
+                        padding: 12,
+                        borderRadius: 8,
+                        background: isCorrect === true ? '#eaffea' : '#ffeaea',
+                        border: isCorrect === true ? '2px solid #43e97b' : '2px solid #ff5e62',
+                        color: '#222',
+                        fontWeight: 500,
+                        textAlign: 'left'
+                      }}>
+                        <div><b>Q{globalIdx + 1}:</b> {q.question}</div>
+                        <div>
+                          <b>Your answer:</b> {userAnswer || <span style={{ color: '#aaa' }}>No answer</span>}
+                          {isCorrect === true && <span style={{ color: '#43e97b', marginLeft: 8 }}>✔</span>}
+                          {isCorrect === false && <span style={{ color: '#ff5e62', marginLeft: 8 }}>✘</span>}
+                        </div>
+                        {isCorrect === false && (
+                          <div><b>Correct answer:</b> {q.correct}</div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                {(quizSetIndex + 1) * QUESTIONS_PER_SET < quizzes.length && (
+                  <button
+                    onClick={handleNextQuizSet}
+                    style={{
+                      ...styles.button,
+                      position: 'fixed',
+                      bottom: 32,
+                      right: 32,
+                      zIndex: 2000,
+                      background: 'linear-gradient(90deg, #43e97b 0%, #4f8cff 100%)'
+                    }}
+                  >
+                    Next Set →
+                  </button>
+                )}
               </div>
-              <div>
-                <button
-                  onClick={handleQuizPrev}
-                  style={{ ...styles.button, marginRight: 10 }}
-                  disabled={currentQuiz === 0}
-                >
-                  Previous
-                </button>
-                <span style={styles.progressText}>
-                  {currentQuiz + 1} / {quizzes.length}
-                </span>
-                <button
-                  onClick={handleQuizNext}
-                  style={{ ...styles.button, marginLeft: 10 }}
-                  disabled={currentQuiz === quizzes.length - 1}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -341,9 +475,72 @@ export default function Home() {
         {showCamera && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: 20 }}>
             <video ref={videoRef} autoPlay style={{ width: 320, height: 240, borderRadius: 8, border: '1px solid #aaa', background: '#222' }} />
-            <button onClick={captureImage} style={{ ...styles.button, marginTop: 10 }}>Capture & Scan</button>
-            <canvas ref={canvasRef} style={{ display: 'none' }} />
+            <button
+              onClick={() => {
+                const video = videoRef.current
+                const canvas = canvasRef.current
+                if (!video || !canvas) return
+                canvas.width = video.videoWidth
+                canvas.height = video.videoHeight
+                const ctx = canvas.getContext('2d')
+                ctx?.drawImage(video, 0, 0, canvas.width, canvas.height)
+                // Save a copy of the canvas
+                const newCanvas = document.createElement('canvas')
+                newCanvas.width = canvas.width
+                newCanvas.height = canvas.height
+                newCanvas.getContext('2d')?.drawImage(canvas, 0, 0)
+                setImageCanvases(prev => [...prev, newCanvas])
+              }}
+              style={{ ...styles.button, marginTop: 10 }}
+            >
+              Capture Photo
+            </button>
             <button onClick={closeCamera} style={{ marginTop: 10 }}>Close Camera</button>
+            {imageCanvases.length > 0 && (
+              <>
+                <div style={{ margin: 10 }}>
+                  <span style={{ color: '#4f8cff' }}>{imageCanvases.length} photo(s) captured</span>
+                </div>
+                <button
+                  onClick={() => {
+                    // OCR all canvases
+                    setShowCamera(false)
+                    setOutputHTML('<em>Scanning photos...</em>')
+                    const ocrResults: string[] = []
+                    let processed = 0
+                    imageCanvases.forEach((canvas, idx) => {
+                      Tesseract.recognize(canvas, 'eng').then(({ data: { text } }) => {
+                        ocrResults[idx] = text
+                        processed++
+                        if (processed === imageCanvases.length) {
+                          const allText = ocrResults.join('\n')
+                          generateStudyMaterial(allText)
+                          setImageCanvases([])
+                        }
+                      }).catch(() => {
+                        ocrResults[idx] = ''
+                        processed++
+                        if (processed === imageCanvases.length) {
+                          const allText = ocrResults.join('\n')
+                          generateStudyMaterial(allText)
+                          setImageCanvases([])
+                        }
+                      })
+                    })
+                  }}
+                  style={{ ...styles.button, background: '#43e97b', color: '#fff' }}
+                >
+                  Process All Photos
+                </button>
+                <button
+                  onClick={() => setImageCanvases([])}
+                  style={{ ...styles.button, background: '#ff5e62', color: '#fff' }}
+                >
+                  Clear Photos
+                </button>
+              </>
+            )}
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
           </div>
         )}
 
@@ -358,9 +555,9 @@ export default function Home() {
 
 const styles: { [key: string]: React.CSSProperties } = {
   body: {
-    fontFamily: 'Arial, sans-serif',
+    fontFamily: 'Inter, Arial, sans-serif',
     textAlign: 'center',
-    backgroundColor: '#e6f7ee',
+    background: 'linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%)',
     minHeight: '100vh',
     minWidth: '100vw',
     margin: 0,
@@ -369,37 +566,45 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexDirection: 'column',
   },
   h1: {
-    color: '#2e8b57',
-    fontSize: 'clamp(2.8rem, 7vw, 4.5rem)',
+    color: '#4f8cff',
+    fontSize: 'clamp(3rem, 7vw, 5rem)',
     marginBottom: 24,
+    fontWeight: 800,
+    letterSpacing: '-2px',
+    textShadow: '0 4px 24px rgba(79,140,255,0.10)',
   },
   navbar: {
     position: 'fixed',
     top: 0,
     left: 0,
     width: '100%',
-    background: '#2e8b57',
+    background: 'linear-gradient(90deg, #4f8cff 0%, #43e97b 100%)',
     color: '#fff',
-    padding: '20px 0',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+    padding: '22px 0',
+    boxShadow: '0 2px 16px rgba(79,140,255,0.10)',
     zIndex: 1000,
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 40,
-    fontSize: 'clamp(1.5rem, 3vw, 2.2rem)',
+    fontSize: 'clamp(1.6rem, 3vw, 2.3rem)',
+    fontWeight: 700,
+    letterSpacing: '-1px',
   },
   logo: {
-    fontWeight: 'bold',
-    fontSize: 'clamp(1.8rem, 4vw, 2.8rem)',
+    fontWeight: 900,
+    fontSize: 'clamp(2rem, 4vw, 3rem)',
+    letterSpacing: '-1px',
+    textShadow: '0 2px 8px rgba(67,233,123,0.10)',
   },
   navDesc: {
     fontSize: 'clamp(1.2rem, 2.5vw, 1.7rem)',
-    opacity: 0.85,
+    opacity: 0.92,
+    fontWeight: 500,
   },
   mainContent: {
-    marginTop: 120,
-    minHeight: 'calc(100vh - 120px)',
+    marginTop: 130,
+    minHeight: 'calc(100vh - 130px)',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -413,50 +618,62 @@ const styles: { [key: string]: React.CSSProperties } = {
     minWidth: 320,
     marginLeft: 'auto',
     marginRight: 'auto',
-    boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
+    boxShadow: '0 4px 32px rgba(79,140,255,0.10)',
     margin: '20px 0',
-    padding: 32,
-    borderRadius: 16,
-    backgroundColor: '#f9f9f9',
+    padding: 36,
+    borderRadius: 20,
+    background: '#fff',
     fontSize: 'clamp(1.3rem, 2.5vw, 1.7rem)',
+    border: '2px solid #4f8cff22',
   },
   card: {
-    transition: 'background-color 0.3s',
+    transition: 'background 0.3s, box-shadow 0.3s, border 0.3s',
     margin: '20px 0',
     cursor: 'pointer',
     fontSize: 'clamp(2rem, 5vw, 2.8rem)',
-    padding: '40px 40px',
-    borderRadius: 16,
-    border: 'none',
-    color: '#fff',
-    backgroundColor: '#2e8b57',
+    padding: '48px 48px',
+    borderRadius: 20,
+    border: '3px solid #43e97b',
+    color: '#222',
+    background: 'linear-gradient(135deg, #fff 60%, #e0eafc 100%)',
     minHeight: 260,
     minWidth: 400,
     maxWidth: 900,
-    boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
+    boxShadow: '0 8px 32px rgba(67,233,123,0.10), 0 2px 8px rgba(79,140,255,0.08)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     wordBreak: 'break-word',
     lineHeight: 1.3,
+    fontWeight: 600,
+    userSelect: 'none',
   },
   button: {
     fontSize: 'clamp(1.3rem, 2.5vw, 1.7rem)',
     padding: '18px 36px',
     margin: '16px',
     borderRadius: 12,
-    background: '#2e8b57',
+    background: 'linear-gradient(90deg, #4f8cff 0%, #43e97b 100%)',
     color: '#fff',
     border: 'none',
     cursor: 'pointer',
-    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+    boxShadow: '0 4px 16px rgba(79,140,255,0.12)',
+    fontWeight: 700,
+    letterSpacing: '-0.5px',
+    transition: 'background 0.2s, box-shadow 0.2s, transform 0.1s',
+  },
+  buttonHover: {
+    background: 'linear-gradient(90deg, #43e97b 0%, #4f8cff 100%)',
+    boxShadow: '0 8px 24px rgba(67,233,123,0.18)',
+    transform: 'translateY(-2px) scale(1.03)',
   },
   subtitle: {
     fontSize: 'clamp(1.3rem, 3vw, 2rem)',
-    color: '#2e8b57',
+    color: '#4f8cff',
     marginBottom: 32,
     marginTop: 8,
     fontWeight: 500,
+    letterSpacing: '-0.5px',
   },
   centeredColumn: {
     display: 'flex',
@@ -465,78 +682,86 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: '100%',
   },
   progressBarWrap: {
-    width: 320,
-    height: 8,
+    width: 340,
+    height: 10,
     background: '#e0e0e0',
-    borderRadius: 4,
-    margin: '18px auto 18px auto',
+    borderRadius: 5,
+    margin: '22px auto 22px auto',
     overflow: 'hidden',
     maxWidth: '90vw',
+    boxShadow: '0 2px 8px #4f8cff11',
   },
   progressBar: {
     height: '100%',
-    background: 'linear-gradient(90deg, #2e8b57 0%, #4682b4 100%)',
-    borderRadius: 4,
+    background: 'linear-gradient(90deg, #4f8cff 0%, #43e97b 100%)',
+    borderRadius: 5,
     transition: 'width 0.3s',
   },
   progressText: {
     fontSize: 'clamp(1.1rem, 2vw, 1.5rem)',
-    fontWeight: 500,
-    color: '#2e8b57',
+    fontWeight: 600,
+    color: '#4f8cff',
     margin: '0 12px',
+    letterSpacing: '-0.5px',
   },
   helperText: {
-    marginTop: 14,
+    marginTop: 18,
     fontSize: 'clamp(1rem, 1.5vw, 1.2rem)',
-    color: '#555',
+    color: '#888',
     fontStyle: 'italic',
+    fontWeight: 500,
   },
   quizCard: {
-    background: '#fff',
-    borderRadius: 18,
-    boxShadow: '0 4px 32px rgba(46,139,87,0.10)',
-    padding: '36px 32px',
+    background: 'linear-gradient(135deg, #fff 60%, #e0eafc 100%)',
+    borderRadius: 22,
+    boxShadow: '0 8px 32px rgba(79,140,255,0.10), 0 2px 8px rgba(255,179,71,0.08)',
+    padding: '40px 36px',
     minWidth: 340,
     maxWidth: 700,
     margin: '0 auto',
-    marginBottom: 24,
+    marginBottom: 28,
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
+    border: '3px solid #ffb347',
   },
   quizQuestion: {
     fontSize: 'clamp(1.5rem, 3vw, 2.2rem)',
-    color: '#2e8b57',
-    marginBottom: 24,
-    fontWeight: 600,
+    color: '#ff5e62',
+    marginBottom: 28,
+    fontWeight: 700,
     textAlign: 'center',
+    letterSpacing: '-1px',
   },
   quizChoices: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 18,
+    gap: 20,
     width: '100%',
-    marginBottom: 18,
+    marginBottom: 22,
   },
   quizChoiceButton: {
     fontSize: 'clamp(1.1rem, 2vw, 1.4rem)',
     padding: '18px 24px',
-    borderRadius: 10,
-    border: '2px solid #ccc',
+    borderRadius: 12,
+    border: '2px solid #4f8cff44',
     background: '#f9f9f9',
-    color: '#2e8b57',
+    color: '#4f8cff',
     cursor: 'pointer',
-    transition: 'background 0.2s, color 0.2s, border 0.2s',
+    transition: 'background 0.2s, color 0.2s, border 0.2s, transform 0.1s',
     width: '100%',
     textAlign: 'left',
-    fontWeight: 500,
+    fontWeight: 600,
     outline: 'none',
+    boxShadow: '0 2px 8px #4f8cff11',
   },
   quizFeedback: {
     fontSize: 'clamp(1.2rem, 2vw, 1.5rem)',
-    fontWeight: 600,
-    margin: '12px 0',
-    color: '#4682b4',
+    fontWeight: 700,
+    margin: '16px 0',
+    color: '#43e97b',
     textAlign: 'center',
+    minHeight: 24,
+    letterSpacing: '-0.5px',
   },
 }
