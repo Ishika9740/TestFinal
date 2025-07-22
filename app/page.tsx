@@ -17,7 +17,6 @@ type Quiz = {
 export default function Home() {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([])
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
-  const [showFlashcards, setShowFlashcards] = useState(true)
   const [showModes, setShowModes] = useState(false)
   const [outputHTML, setOutputHTML] = useState('')
   const [showCamera, setShowCamera] = useState(false)
@@ -87,7 +86,6 @@ export default function Home() {
     }))
     setFlashcards(flash)
     setQuizzes(quiz)
-    setShowFlashcards(true)
     renderFlashcards(flash)
   }
 
@@ -168,8 +166,8 @@ export default function Home() {
 
         {showModes && (
           <div style={{ marginTop: 20 }}>
-            <button onClick={() => { setShowFlashcards(true); renderFlashcards(flashcards) }} style={styles.button}>Flashcards</button>
-            <button onClick={() => { setShowFlashcards(false); renderQuizzes(quizzes) }} style={styles.button}>Quiz</button>
+            <button onClick={() => renderFlashcards(flashcards)} style={styles.button}>Flashcards</button>
+            <button onClick={() => renderQuizzes(quizzes)} style={styles.button}>Quiz</button>
           </div>
         )}
 
@@ -229,32 +227,23 @@ const styles: { [key: string]: React.CSSProperties } = {
     textAlign: 'left',
     maxWidth: 600,
     marginLeft: 'auto',
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-}  },    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',    margin: '10px 0',    padding: 15,    borderRadius: 8,    backgroundColor: '#f9f9f9',  card: {  },    transition: 'background-color 0.3s',    margin: '10px 0',    cursor: 'pointer',    fontSize: '1em',    padding: '10px 20px',    borderRadius: 4,    border: 'none',    color: '#fff',    backgroundColor: '#2e8b57',  button: {  },    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',    backgroundColor: '#fff',    borderRadius: 8,    padding: 10,    marginRight: 'auto',    marginRight: 'auto',
+    marginRight: 'auto',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    margin: '10px 0',
+    padding: 15,
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+  },
+  card: {
+    transition: 'background-color 0.3s',
+    margin: '10px 0',
+    cursor: 'pointer',
+    fontSize: '1em',
+    padding: '10px 20px',
+    borderRadius: 4,
+    border: 'none',
+    color: '#fff',
+    backgroundColor: '#2e8b57',
   },
   button: {
     fontSize: '1em',
@@ -265,5 +254,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#fff',
     border: 'none',
     cursor: 'pointer',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
   },
 }
