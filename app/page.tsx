@@ -195,6 +195,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   h1: {
     color: '#2e8b57',
+    fontSize: 'clamp(2rem, 4vw, 3rem)', // fluid typography
   },
   navbar: {
     position: 'fixed',
@@ -210,13 +211,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: 'center',
     alignItems: 'center',
     gap: 30,
+    fontSize: 'clamp(1rem, 2vw, 1.3rem)', // fluid typography
   },
   logo: {
     fontWeight: 'bold',
-    fontSize: '1.3em',
+    fontSize: 'clamp(1.2rem, 2.5vw, 2rem)', // fluid typography
   },
   navDesc: {
-    fontSize: '1em',
+    fontSize: 'clamp(0.9rem, 2vw, 1.1rem)', // fluid typography
     opacity: 0.85,
   },
   mainContent: {
@@ -233,12 +235,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: 15,
     borderRadius: 8,
     backgroundColor: '#f9f9f9',
+    fontSize: 'clamp(1rem, 2vw, 1.2rem)', // fluid typography
   },
   card: {
     transition: 'background-color 0.3s',
     margin: '10px 0',
     cursor: 'pointer',
-    fontSize: '1em',
+    fontSize: 'clamp(1rem, 2vw, 1.2rem)', // fluid typography
     padding: '10px 20px',
     borderRadius: 4,
     border: 'none',
@@ -246,7 +249,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     backgroundColor: '#2e8b57',
   },
   button: {
-    fontSize: '1em',
+    fontSize: 'clamp(1rem, 2vw, 1.2rem)', // fluid typography
     padding: '12px 24px',
     margin: '10px',
     borderRadius: 8,
