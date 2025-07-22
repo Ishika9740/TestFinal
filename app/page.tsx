@@ -21,8 +21,12 @@ export default function Home() {
   const [outputHTML, setOutputHTML] = useState('')
   const [showCamera, setShowCamera] = useState(false)
   const [showFlashcardMode, setShowFlashcardMode] = useState(false)
+  const [showQuizMode, setShowQuizMode] = useState(false)
   const [currentFlashcard, setCurrentFlashcard] = useState(0)
+  const [currentQuiz, setCurrentQuiz] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
+  const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
+  const [quizFeedback, setQuizFeedback] = useState<string | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -139,6 +143,45 @@ export default function Home() {
     processImage(canvas)
   }
 
+  // When switching to quiz mode, reset quiz state
+  const startQuiz = () => {
+    setShowQuizMode(true)
+    setShowFlashcardMode(false)
+    setCurrentQuiz(0)
+    setSelectedChoice(null)
+    setQuizFeedback(null)
+    setOutputHTML('')
+  }
+
+  // When switching to flashcard mode, reset flashcard state
+  const startFlashcards = () => {
+    setShowFlashcardMode(true)
+    setShowQuizMode(false)
+    setIsFlipped(false)
+    setCurrentFlashcard(0)
+    setOutputHTML('')
+  }
+
+  // Quiz handlers
+  const handleQuizChoice = (choice: string) => {
+    setSelectedChoice(choice)
+    if (choice === quizzes[currentQuiz].correct) {
+      setQuizFeedback('✅ Correct!')
+    } else {
+      setQuizFeedback('❌ Incorrect')
+    }
+  }
+  const handleQuizNext = () => {
+    setCurrentQuiz((prev) => Math.min(prev + 1, quizzes.length - 1))
+    setSelectedChoice(null)
+    setQuizFeedback(null)
+  }
+  const handleQuizPrev = () => {
+    setCurrentQuiz((prev) => Math.max(prev - 1, 0))
+    setSelectedChoice(null)
+    setQuizFeedback(null)
+  }
+
   // Flashcard navigation handlers
   const handlePrev = () => {
     setCurrentFlashcard((prev) => Math.max(prev - 1, 0))
@@ -174,7 +217,7 @@ export default function Home() {
 
       <div style={styles.mainContent}>
         <h1 style={styles.h1}>📚 Study Smart</h1>
-        <p>Upload your notes, or scan a document to turn them into flashcards and quizzes!</p>
+        <p style={styles.subtitle}>Upload your notes, or scan a document to turn them into flashcards and quizzes!</p>
 
         <div style={{ display: showModes ? 'none' : 'block' }}>
           <input type="file" ref={fileInputRef} accept=".txt,.pdf,image/*" className="big-btn" />
@@ -183,47 +226,27 @@ export default function Home() {
         </div>
 
         {showModes && (
-          <div style={{ marginTop: 20 }}>
-            <button
-              onClick={() => {
-                setShowFlashcardMode(true)
-                setIsFlipped(false)
-                setCurrentFlashcard(0)
-                setOutputHTML('')
-              }}
-              style={styles.button}
-            >
-              Flashcards
-            </button>
-            <button
-              onClick={() => {
-                setShowFlashcardMode(false)
-                renderQuizzes(quizzes)
-              }}
-              style={styles.button}
-            >
-              Quiz
-            </button>
+          <div style={{ marginTop: 24, display: 'flex', gap: 24 }}>
+            <button onClick={startFlashcards} style={styles.button}>Flashcards</button>
+            <button onClick={startQuiz} style={styles.button}>Quiz</button>
           </div>
         )}
 
+        {/* Flashcard Mode */}
         {showFlashcardMode && flashcards.length > 0 && (
-          <div style={{ margin: '30px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={styles.centeredColumn}>
             <div
               style={{
                 ...styles.card,
-                minHeight: 180,
-                minWidth: 320,
-                maxWidth: 600,
-                fontSize: 'clamp(1.3rem, 3vw, 2.2rem)',
+                minHeight: 220,
+                minWidth: 340,
+                maxWidth: 700,
+                fontSize: 'clamp(1.8rem, 4vw, 2.8rem)',
                 background: isFlipped ? '#4682b4' : '#2e8b57',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 20,
-                cursor: 'pointer',
-                userSelect: 'none',
-                transition: 'background 0.3s',
+                boxShadow: isFlipped
+                  ? '0 8px 32px rgba(70,130,180,0.18)'
+                  : '0 8px 32px rgba(46,139,87,0.18)',
+                transition: 'background 0.3s, box-shadow 0.3s',
               }}
               onClick={handleFlip}
               tabIndex={0}
@@ -233,6 +256,12 @@ export default function Home() {
                 ? flashcards[currentFlashcard].answer
                 : flashcards[currentFlashcard].question}
             </div>
+            <div style={styles.progressBarWrap}>
+              <div style={{
+                ...styles.progressBar,
+                width: `${((currentFlashcard + 1) / flashcards.length) * 100}%`
+              }} />
+            </div>
             <div>
               <button
                 onClick={handlePrev}
@@ -241,7 +270,7 @@ export default function Home() {
               >
                 Previous
               </button>
-              <span style={{ fontSize: 'clamp(1rem, 2vw, 1.2rem)' }}>
+              <span style={styles.progressText}>
                 {currentFlashcard + 1} / {flashcards.length}
               </span>
               <button
@@ -252,12 +281,78 @@ export default function Home() {
                 Next
               </button>
             </div>
-            <div style={{ marginTop: 10, fontSize: 'clamp(0.9rem, 1.5vw, 1.1rem)', color: '#555' }}>
+            <div style={styles.helperText}>
               Click the card to flip between question and answer.
             </div>
           </div>
         )}
 
+        {/* Quiz Mode */}
+        {showQuizMode && quizzes.length > 0 && (
+          <div style={styles.centeredColumn}>
+            <div style={styles.quizCard}>
+              <div style={styles.quizQuestion}>
+                {quizzes[currentQuiz].question}
+              </div>
+              <div style={styles.quizChoices}>
+                {quizzes[currentQuiz].choices.map((choice, idx) => (
+                  <button
+                    key={choice}
+                    style={{
+                      ...styles.quizChoiceButton,
+                      background:
+                        selectedChoice === choice
+                          ? (choice === quizzes[currentQuiz].correct ? '#2ecc40' : '#e74c3c')
+                          : '#f9f9f9',
+                      color:
+                        selectedChoice === choice
+                          ? '#fff'
+                          : '#2e8b57',
+                      border:
+                        selectedChoice === choice
+                          ? '2px solid #2e8b57'
+                          : '2px solid #ccc',
+                      pointerEvents: selectedChoice ? 'none' : 'auto',
+                    }}
+                    onClick={() => handleQuizChoice(choice)}
+                  >
+                    {choice}
+                  </button>
+                ))}
+              </div>
+              {quizFeedback && (
+                <div style={styles.quizFeedback}>{quizFeedback}</div>
+              )}
+              <div style={styles.progressBarWrap}>
+                <div style={{
+                  ...styles.progressBar,
+                  width: `${((currentQuiz + 1) / quizzes.length) * 100}%`
+                }} />
+              </div>
+              <div>
+                <button
+                  onClick={handleQuizPrev}
+                  style={{ ...styles.button, marginRight: 10 }}
+                  disabled={currentQuiz === 0}
+                >
+                  Previous
+                </button>
+                <span style={styles.progressText}>
+                  {currentQuiz + 1} / {quizzes.length}
+                </span>
+                <button
+                  onClick={handleQuizNext}
+                  style={{ ...styles.button, marginLeft: 10 }}
+                  disabled={currentQuiz === quizzes.length - 1}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Camera */}
         {showCamera && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: 20 }}>
             <video ref={videoRef} autoPlay style={{ width: 320, height: 240, borderRadius: 8, border: '1px solid #aaa', background: '#222' }} />
@@ -267,7 +362,8 @@ export default function Home() {
           </div>
         )}
 
-        {!showFlashcardMode && (
+        {/* Output for quiz/flashcards not shown */}
+        {!showFlashcardMode && !showQuizMode && (
           <div id="output" dangerouslySetInnerHTML={{ __html: outputHTML }} style={styles.output} />
         )}
       </div>
@@ -279,12 +375,18 @@ const styles: { [key: string]: React.CSSProperties } = {
   body: {
     fontFamily: 'Arial, sans-serif',
     textAlign: 'center',
-    backgroundColor: '#f0fff0',
-    padding: 20,
+    backgroundColor: '#e6f7ee',
+    minHeight: '100vh',
+    minWidth: '100vw',
+    margin: 0,
+    padding: 0,
+    display: 'flex',
+    flexDirection: 'column',
   },
   h1: {
     color: '#2e8b57',
-    fontSize: 'clamp(2rem, 4vw, 3rem)', // fluid typography
+    fontSize: 'clamp(2.8rem, 7vw, 4.5rem)',
+    marginBottom: 24,
   },
   navbar: {
     position: 'fixed',
@@ -293,59 +395,163 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: '100%',
     background: '#2e8b57',
     color: '#fff',
-    padding: '12px 0',
+    padding: '20px 0',
     boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
     zIndex: 1000,
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 30,
-    fontSize: 'clamp(1rem, 2vw, 1.3rem)', // fluid typography
+    gap: 40,
+    fontSize: 'clamp(1.5rem, 3vw, 2.2rem)',
   },
   logo: {
     fontWeight: 'bold',
-    fontSize: 'clamp(1.2rem, 2.5vw, 2rem)', // fluid typography
+    fontSize: 'clamp(1.8rem, 4vw, 2.8rem)',
   },
   navDesc: {
-    fontSize: 'clamp(0.9rem, 2vw, 1.1rem)', // fluid typography
+    fontSize: 'clamp(1.2rem, 2.5vw, 1.7rem)',
     opacity: 0.85,
   },
   mainContent: {
-    marginTop: 80,
+    marginTop: 120,
+    minHeight: 'calc(100vh - 120px)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 0,
   },
   output: {
-    marginTop: 20,
+    marginTop: 30,
     textAlign: 'left',
-    maxWidth: 600,
+    maxWidth: 700,
+    minWidth: 320,
     marginLeft: 'auto',
     marginRight: 'auto',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    margin: '10px 0',
-    padding: 15,
-    borderRadius: 8,
+    boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
+    margin: '20px 0',
+    padding: 32,
+    borderRadius: 16,
     backgroundColor: '#f9f9f9',
-    fontSize: 'clamp(1rem, 2vw, 1.2rem)', // fluid typography
+    fontSize: 'clamp(1.3rem, 2.5vw, 1.7rem)',
   },
   card: {
     transition: 'background-color 0.3s',
-    margin: '10px 0',
+    margin: '20px 0',
     cursor: 'pointer',
-    fontSize: 'clamp(1rem, 2vw, 1.2rem)', // fluid typography
-    padding: '10px 20px',
-    borderRadius: 4,
+    fontSize: 'clamp(2rem, 5vw, 2.8rem)',
+    padding: '40px 40px',
+    borderRadius: 16,
     border: 'none',
     color: '#fff',
     backgroundColor: '#2e8b57',
+    minHeight: 260,
+    minWidth: 400,
+    maxWidth: 900,
+    boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    wordBreak: 'break-word',
+    lineHeight: 1.3,
   },
   button: {
-    fontSize: 'clamp(1rem, 2vw, 1.2rem)', // fluid typography
-    padding: '12px 24px',
-    margin: '10px',
-    borderRadius: 8,
+    fontSize: 'clamp(1.3rem, 2.5vw, 1.7rem)',
+    padding: '18px 36px',
+    margin: '16px',
+    borderRadius: 12,
     background: '#2e8b57',
     color: '#fff',
     border: 'none',
     cursor: 'pointer',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+  },
+  subtitle: {
+    fontSize: 'clamp(1.3rem, 3vw, 2rem)',
+    color: '#2e8b57',
+    marginBottom: 32,
+    marginTop: 8,
+    fontWeight: 500,
+  },
+  centeredColumn: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    width: '100%',
+  },
+  progressBarWrap: {
+    width: 320,
+    height: 8,
+    background: '#e0e0e0',
+    borderRadius: 4,
+    margin: '18px auto 18px auto',
+    overflow: 'hidden',
+    maxWidth: '90vw',
+  },
+  progressBar: {
+    height: '100%',
+    background: 'linear-gradient(90deg, #2e8b57 0%, #4682b4 100%)',
+    borderRadius: 4,
+    transition: 'width 0.3s',
+  },
+  progressText: {
+    fontSize: 'clamp(1.1rem, 2vw, 1.5rem)',
+    fontWeight: 500,
+    color: '#2e8b57',
+    margin: '0 12px',
+  },
+  helperText: {
+    marginTop: 14,
+    fontSize: 'clamp(1rem, 1.5vw, 1.2rem)',
+    color: '#555',
+    fontStyle: 'italic',
+  },
+  quizCard: {
+    background: '#fff',
+    borderRadius: 18,
+    boxShadow: '0 4px 32px rgba(46,139,87,0.10)',
+    padding: '36px 32px',
+    minWidth: 340,
+    maxWidth: 700,
+    margin: '0 auto',
+    marginBottom: 24,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  quizQuestion: {
+    fontSize: 'clamp(1.5rem, 3vw, 2.2rem)',
+    color: '#2e8b57',
+    marginBottom: 24,
+    fontWeight: 600,
+    textAlign: 'center',
+  },
+  quizChoices: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 18,
+    width: '100%',
+    marginBottom: 18,
+  },
+  quizChoiceButton: {
+    fontSize: 'clamp(1.1rem, 2vw, 1.4rem)',
+    padding: '18px 24px',
+    borderRadius: 10,
+    border: '2px solid #ccc',
+    background: '#f9f9f9',
+    color: '#2e8b57',
+    cursor: 'pointer',
+    transition: 'background 0.2s, color 0.2s, border 0.2s',
+    width: '100%',
+    textAlign: 'left',
+    fontWeight: 500,
+    outline: 'none',
+  },
+  quizFeedback: {
+    fontSize: 'clamp(1.2rem, 2vw, 1.5rem)',
+    fontWeight: 600,
+    margin: '12px 0',
+    color: '#4682b4',
+    textAlign: 'center',
   },
 }
