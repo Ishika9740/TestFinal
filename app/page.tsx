@@ -193,21 +193,6 @@ export default function Home() {
   }
   const handleFlip = () => setIsFlipped((f) => !f)
 
-  const renderQuizzes = (questions: Quiz[]) => {
-    setShowFlashcardMode(false)
-    setOutputHTML(
-      `<h2>Quiz</h2>` +
-        questions
-          .map(
-            (q) =>
-              `<div class="card"><strong>${q.question}</strong><ul>` +
-              q.choices.map((c: string) => `<li>${c}</li>`).join('') +
-              `</ul></div>`
-          )
-          .join('')
-    )
-  }
-
   return (
     <div style={styles.body}>
       <nav style={styles.navbar}>
@@ -295,7 +280,7 @@ export default function Home() {
                 {quizzes[currentQuiz].question}
               </div>
               <div style={styles.quizChoices}>
-                {quizzes[currentQuiz].choices.map((choice, idx) => (
+                {quizzes[currentQuiz].choices.map((choice) => (
                   <button
                     key={choice}
                     style={{
