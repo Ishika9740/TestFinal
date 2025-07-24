@@ -91,16 +91,37 @@ export default function Home() {
   }
 
   const generateStudyMaterial = (text: string) => {
-    const lines = text.split('\n').filter((line) => line.trim() !== '')
+    const lines = text
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line !== '')
+
+    // Generate flashcards
     const flash = lines.map((line) => ({
       question: `What is the key idea in: "${line.slice(0, 50)}..."?`,
       answer: line,
     }))
-    const quiz = flash.map((card) => ({
-      question: card.question,
-      choices: [card.answer, 'Wrong A', 'Wrong B', 'Wrong C'].sort(() => Math.random() - 0.5),
-      correct: card.answer,
-    }))
+
+    // Generate quizzes with real distractors
+    const quiz = flash.map((card) => {
+      // Pick 3 other random answers as distractors
+      const distractors = []
+      const otherAnswers = flash
+        .map((f) => f.answer)
+        .filter((ans) => ans !== card.answer)
+      while (distractors.length < 3 && otherAnswers.length > 0) {
+        const randIdx = Math.floor(Math.random() * otherAnswers.length)
+        distractors.push(otherAnswers.splice(randIdx, 1)[0])
+      }
+      const choices = [card.answer, ...distractors]
+        .sort(() => Math.random() - 0.5)
+      return {
+        question: card.question,
+        choices,
+        correct: card.answer,
+      }
+    })
+
     setFlashcards(flash)
     setQuizzes(quiz)
     setShowFlashcardMode(false)
@@ -609,21 +630,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: 'center',
     padding: 0,
   },
-  output: {
-    marginTop: 30,
-    textAlign: 'left',
-    maxWidth: 700,
-    minWidth: 320,
-    marginLeft: 'auto',
-    marginRight: 'auto',
-    boxShadow: '0 4px 32px rgba(143,92,255,0.10)',
-    margin: '20px 0',
-    padding: 36,
-    borderRadius: 20,
-    background: '#fff',
-    fontSize: 'clamp(1.3rem, 2.5vw, 1.7rem)',
-    border: '2px solid #8f5cff22',
-  },
+ 
   card: {
     transition: 'background 0.3s, box-shadow 0.3s, border 0.3s',
     margin: '20px 0',
