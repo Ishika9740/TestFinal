@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import Tesseract from 'tesseract.js'
 
 type Flashcard = {
@@ -20,11 +20,10 @@ const QUESTIONS_PER_SET = 5
 
 export default function HomePage() {
   const [mode, setMode] = useState<Mode>('home')
-  const [imageText, setImageText] = useState('')
   const [flashcards, setFlashcards] = useState<Flashcard[]>([])
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
-  const [quizCount, setQuizCount] = useState(10)
-  const [quizSetIndex, setQuizSetIndex] = useState(0)
+  const [quizCount] = useState(10)
+  const [quizSetIndex] = useState(0)
   const [currentQuiz, setCurrentQuiz] = useState(0)
   const [quizFeedback, setQuizFeedback] = useState<{
     correct: boolean
@@ -38,7 +37,6 @@ export default function HomePage() {
     const file = event.target.files?.[0]
     if (file) {
       Tesseract.recognize(file, 'eng').then(({ data: { text } }) => {
-        setImageText(text)
         generateFlashcards(text)
         generateQuizzes(text)
         setMode('flashcards')
@@ -57,7 +55,7 @@ export default function HomePage() {
 
   const generateQuizzes = (text: string) => {
     const lines = text.split('\n').filter((line) => line.trim() !== '')
-    const quizzesGenerated = lines.map((line, i) => {
+    const quizzesGenerated = lines.map((line) => {
       const options = [line]
       while (options.length < 4) {
         const randomLine = lines[Math.floor(Math.random() * lines.length)]
@@ -124,14 +122,14 @@ export default function HomePage() {
   }
 
   const cardStyle = {
-    backgroundColor: '#fff',
-    border: '1px solid #ccc',
+    backgroundColor: '#e6ffe6', // light green
+    border: '2px solid #2e8b57', // green border
     borderRadius: '8px',
     padding: '1rem',
     margin: '1rem',
     width: '80%',
     maxWidth: '400px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    boxShadow: '0 2px 4px rgba(46,139,87,0.1)',
   }
 
   const buttonRowStyle = {
@@ -181,44 +179,65 @@ export default function HomePage() {
 
       {mode === 'quiz' && (
         <div style={containerStyle}>
-          {quizzesToShow.length > 0 && (
-            <div style={cardStyle}>
-              <p><strong>{quizzesToShow[quizSetIndex * QUESTIONS_PER_SET + currentQuiz].question}</strong></p>
-              <div>
-                {quizzesToShow[quizSetIndex * QUESTIONS_PER_SET + currentQuiz].options.map((option, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleAnswer(option)}
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      padding: '10px',
-                      margin: '5px 0',
-                      borderRadius: '5px',
-                      backgroundColor:
-                        quizFeedback && quizFeedback.selected === option
-                          ? quizFeedback.correct
-                            ? '#d4edda'
-                            : '#f8d7da'
-                          : '#e6ffe6',
-                    }}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-              {quizFeedback && (
-                <p style={{ marginTop: 10 }}>
-                  {quizFeedback.correct ? '✅ Correct!' : `❌ Incorrect. Answer: ${quizFeedback.answer}`}
+          {quizzesToShow.length > 0 &&
+            quizzesToShow[quizSetIndex * QUESTIONS_PER_SET + currentQuiz] && (
+              <div style={cardStyle}>
+                <p>
+                  <strong>
+                    {quizzesToShow[quizSetIndex * QUESTIONS_PER_SET + currentQuiz].question}
+                  </strong>
                 </p>
-              )}
-              <div style={buttonRowStyle}>
-                <button onClick={handleQuizPrev} style={buttonStyle}>Prev</button>
-                <button onClick={handleQuizNext} style={buttonStyle}>Next</button>
+                <div>
+                  {quizzesToShow[quizSetIndex * QUESTIONS_PER_SET + currentQuiz].options.map((option, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleAnswer(option)}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        padding: '10px',
+                        margin: '5px 0',
+                        borderRadius: '5px',
+                        backgroundColor:
+                          quizFeedback && quizFeedback.selected === option
+                            ? quizFeedback.correct
+                              ? '#d4edda'
+                              : '#f8d7da'
+                            : '#e6ffe6',
+                      }}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+                {quizFeedback && (
+                  <p style={{ marginTop: 10 }}>
+                    {quizFeedback.correct ? '✅ Correct!' : `❌ Incorrect. Answer: ${quizFeedback.answer}`}
+                  </p>
+                )}
+                <div style={buttonRowStyle}>
+                  <button
+                    onClick={handleQuizPrev}
+                    style={buttonStyle}
+                    disabled={currentQuiz === 0}
+                  >
+                    Prev
+                  </button>
+                  <button
+                    onClick={handleQuizNext}
+                    style={buttonStyle}
+                    disabled={
+                      currentQuiz >= Math.min(QUESTIONS_PER_SET, quizzesToShow.length - quizSetIndex * QUESTIONS_PER_SET) - 1
+                    }
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-          <button style={buttonStyle} onClick={() => setMode('home')}>Back</button>
+            )}
+          <button style={buttonStyle} onClick={() => setMode('home')}>
+            Back
+          </button>
         </div>
       )}
     </div>
