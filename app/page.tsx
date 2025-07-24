@@ -14,11 +14,11 @@ type Quiz = {
   correct: string
 }
 
-const QUESTIONS_PER_SET = 10
+const QUESTIONS_PER_SET = 10;
 
 export default function Home() {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([])
-  const [quizzes, setQuizzes] = useState<Quiz[]>([])
+  quizzesToShow[quizSetIndex * QUESTIONS_PER_SET + currentQuiz].question
   const [showModes, setShowModes] = useState(false)
   const [outputHTML, setOutputHTML] = useState('')
   const [showCamera, setShowCamera] = useState(false)
@@ -33,7 +33,24 @@ export default function Home() {
   const [quizResults, setQuizResults] = useState<(boolean | null)[]>([])
   const [quizSetIndex, setQuizSetIndex] = useState(0)
   const [showQuizReview, setShowQuizReview] = useState(false)
-
+  const [quizCount, setQuizCount] = useState(10);
+  const quizzesToShow = quizzes.slice(0, quizCount);
+  
+  {(quizSetIndex + 1) * QUESTIONS_PER_SET < quizzes.length && (
+  <button
+    onClick={handleNextQuizSet}
+    style={{
+      ...styles.button,
+      position: 'fixed',
+      bottom: 32,
+      right: 32,
+      zIndex: 2000,
+      background: 'linear-gradient(90deg, #43e97b 0%, #4f8cff 100%)'
+    }}
+  >
+    Next Set →
+  </button>
+)}
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -48,8 +65,7 @@ export default function Home() {
 
   const handleFile = () => {
     const files = fileInputRef.current?.files
-    if (!files || files.length === 0) return alert('Please select file(s)')
-
+    if (!files || files.length === 0) return alert('Please select file(s)') 
     setOutputHTML('<em>Processing...</em>')
 
     const imageFiles: File[] = []
@@ -151,15 +167,15 @@ export default function Home() {
 
   // When switching to quiz mode, reset quiz state
   const startQuiz = () => {
-    setShowQuizMode(true)
-    setShowFlashcardMode(false)
-    setCurrentQuiz(0)
-    setQuizSetIndex(0)
-    setQuizAnswers(Array(quizzes.length).fill(null))
-    setQuizResults(Array(quizzes.length).fill(null))
-    setQuizFeedback(null)
-    setShowQuizReview(false)
-    setOutputHTML('')
+    setShowQuizMode(true);
+    setShowFlashcardMode(false);
+    setCurrentQuiz(0);
+    setQuizSetIndex(0);
+    setQuizAnswers(Array(Math.min(quizCount, quizzes.length)).fill(null));
+    setQuizResults(Array(Math.min(quizCount, quizzes.length)).fill(null));
+    setQuizFeedback(null);
+    setShowQuizReview(false);
+    setOutputHTML('');
   }
 
   // When switching to flashcard mode, reset flashcard state
@@ -200,13 +216,6 @@ export default function Home() {
       setCurrentQuiz((prev) => prev - 1)
       setQuizFeedback(null)
     }
-  }
-  const handleNextQuizSet = () => {
-    setQuizSetIndex((prev) => prev + 1)
-    setCurrentQuiz(0)
-    setQuizFeedback(null)
-    setShowQuizReview(false)
-  }
 
   // Flashcard navigation handlers
   const handlePrev = () => {
@@ -267,6 +276,16 @@ export default function Home() {
     })
   }
 
+  // Place this with your other handlers, above your return statement:
+  const handleNextQuizSet = () => {
+    setQuizSetIndex((prev) => prev + 1)
+    setCurrentQuiz(0)
+    setQuizFeedback(null)
+    setShowQuizReview(false)
+  }
+
+  const quizzesToShow = quizzes.slice(0, quizCount)
+
   return (
     <div style={styles.body}>
       <nav style={styles.navbar}>
@@ -282,12 +301,32 @@ export default function Home() {
           <input type="file" ref={fileInputRef} accept=".txt,.pdf,image/*" className="big-btn" multiple />
           <button onClick={handleFile} style={styles.button}>Generate</button>
           <button onClick={openCamera} style={styles.button}>Scan with Camera</button>
+          <p style={styles.helperText}>
+    You can select multiple images and text files at once.
+  </p>
         </div>
 
         {showModes && (
-          <div style={{ marginTop: 24, display: 'flex', gap: 24 }}>
-            <button onClick={startFlashcards} style={styles.button}>Flashcards</button>
-            <button onClick={startQuiz} style={styles.button}>Quiz</button>
+          <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
+            <div style={{ marginBottom: 16 }}>
+              <label htmlFor="quiz-count" style={{ fontWeight: 600, marginRight: 8 }}>
+                How many flashcards to quiz on?
+              </label>
+              <select
+                id="quiz-count"
+                value={quizCount}
+                onChange={e => setQuizCount(Number(e.target.value))}
+                style={{ fontSize: '1.2rem', padding: '6px 12px', borderRadius: 8, border: '1px solid #8b5c2e' }}
+              >
+                {[10,20,30,40,50,60,70,80,90,100].map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 24 }}>
+              <button onClick={startFlashcards} style={styles.button}>Flashcards</button>
+              <button onClick={startQuiz} style={styles.button}>Quiz</button>
+            </div>
           </div>
         )}
 
@@ -576,7 +615,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   body: {
     fontFamily: 'Inter, Arial, sans-serif',
     textAlign: 'center',
-    background: 'linear-gradient(135deg, #ede7fa 0%, #e0eafc 100%)',
+    background: '#fff',
     minHeight: '100vh',
     minWidth: '100vw',
     margin: 0,
@@ -585,22 +624,22 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexDirection: 'column',
   },
   h1: {
-    color: '#8f5cff',
+    color: '#2e8b57',
     fontSize: 'clamp(3rem, 7vw, 5rem)',
     marginBottom: 24,
     fontWeight: 800,
     letterSpacing: '-2px',
-    textShadow: '0 4px 24px rgba(143,92,255,0.10)',
+    textShadow: '0 4px 24px rgba(46,139,87,0.10)',
   },
   navbar: {
     position: 'fixed',
     top: 0,
     left: 0,
     width: '100%',
-    background: 'linear-gradient(90deg, #8f5cff 0%, #4f8cff 100%)',
+    background: '#8b5c2e',
     color: '#fff',
     padding: '22px 0',
-    boxShadow: '0 2px 16px rgba(143,92,255,0.10)',
+    boxShadow: '0 2px 16px rgba(139,92,46,0.10)',
     zIndex: 1000,
     display: 'flex',
     justifyContent: 'center',
@@ -614,7 +653,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: 900,
     fontSize: 'clamp(2rem, 4vw, 3rem)',
     letterSpacing: '-1px',
-    textShadow: '0 2px 8px rgba(143,92,255,0.10)',
+    textShadow: '0 2px 8px rgba(46,139,87,0.10)',
   },
   navDesc: {
     fontSize: 'clamp(1.2rem, 2.5vw, 1.7rem)',
@@ -630,7 +669,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: 'center',
     padding: 0,
   },
- 
   card: {
     transition: 'background 0.3s, box-shadow 0.3s, border 0.3s',
     margin: '20px 0',
@@ -638,13 +676,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 'clamp(2rem, 5vw, 2.8rem)',
     padding: '48px 48px',
     borderRadius: 20,
-    border: '3px solid #8f5cff',
+    border: '3px solid #2e8b57',
     color: '#222',
-    background: 'linear-gradient(135deg, #fff 60%, #ede7fa 100%)',
+    background: '#fff',
     minHeight: 260,
     minWidth: 400,
     maxWidth: 900,
-    boxShadow: '0 8px 32px rgba(143,92,255,0.10), 0 2px 8px rgba(79,140,255,0.08)',
+    boxShadow: '0 8px 32px rgba(46,139,87,0.10), 0 2px 8px rgba(139,92,46,0.08)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -658,23 +696,23 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '18px 36px',
     margin: '16px',
     borderRadius: 12,
-    background: 'linear-gradient(90deg, #8f5cff 0%, #4f8cff 100%)',
+    background: '#2e8b57',
     color: '#fff',
     border: 'none',
     cursor: 'pointer',
-    boxShadow: '0 4px 16px rgba(143,92,255,0.12)',
+    boxShadow: '0 4px 16px rgba(46,139,87,0.12)',
     fontWeight: 700,
     letterSpacing: '-0.5px',
     transition: 'background 0.2s, box-shadow 0.2s, transform 0.1s',
   },
   buttonHover: {
-    background: 'linear-gradient(90deg, #4f8cff 0%, #8f5cff 100%)',
-    boxShadow: '0 8px 24px rgba(143,92,255,0.18)',
+    background: '#8b5c2e',
+    boxShadow: '0 8px 24px rgba(139,92,46,0.18)',
     transform: 'translateY(-2px) scale(1.03)',
   },
   subtitle: {
     fontSize: 'clamp(1.3rem, 3vw, 2rem)',
-    color: '#8f5cff',
+    color: '#8b5c2e',
     marginBottom: 32,
     marginTop: 8,
     fontWeight: 500,
@@ -694,18 +732,18 @@ const styles: { [key: string]: React.CSSProperties } = {
     margin: '22px auto 22px auto',
     overflow: 'hidden',
     maxWidth: '90vw',
-    boxShadow: '0 2px 8px #8f5cff11',
+    boxShadow: '0 2px 8px #2e8b5711',
   },
   progressBar: {
     height: '100%',
-    background: 'linear-gradient(90deg, #8f5cff 0%, #4f8cff 100%)',
+    background: '#2e8b57',
     borderRadius: 5,
     transition: 'width 0.3s',
   },
   progressText: {
     fontSize: 'clamp(1.1rem, 2vw, 1.5rem)',
     fontWeight: 600,
-    color: '#8f5cff',
+    color: '#2e8b57',
     margin: '0 12px',
     letterSpacing: '-0.5px',
   },
@@ -717,9 +755,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: 500,
   },
   quizCard: {
-    background: 'linear-gradient(135deg, #fff 60%, #ede7fa 100%)',
+    background: '#fff',
     borderRadius: 22,
-    boxShadow: '0 8px 32px rgba(143,92,255,0.10), 0 2px 8px rgba(79,140,255,0.08)',
+    boxShadow: '0 8px 32px rgba(139,92,46,0.10), 0 2px 8px rgba(46,139,87,0.08)',
     padding: '40px 36px',
     minWidth: 340,
     maxWidth: 700,
@@ -728,11 +766,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    border: '3px solid #4f8cff',
+    border: '3px solid #8b5c2e',
   },
   quizQuestion: {
     fontSize: 'clamp(1.5rem, 3vw, 2.2rem)',
-    color: '#8f5cff',
+    color: '#2e8b57',
     marginBottom: 28,
     fontWeight: 700,
     textAlign: 'center',
@@ -749,22 +787,22 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 'clamp(1.1rem, 2vw, 1.4rem)',
     padding: '18px 24px',
     borderRadius: 12,
-    border: '2px solid #8f5cff44',
+    border: '2px solid #2e8b5744',
     background: '#f9f9f9',
-    color: '#4f8cff',
+    color: '#8b5c2e',
     cursor: 'pointer',
     transition: 'background 0.2s, color 0.2s, border 0.2s, transform 0.1s',
     width: '100%',
     textAlign: 'left',
     fontWeight: 600,
     outline: 'none',
-    boxShadow: '0 2px 8px #8f5cff11',
+    boxShadow: '0 2px 8px #2e8b5711',
   },
   quizFeedback: {
     fontSize: 'clamp(1.2rem, 2vw, 1.5rem)',
     fontWeight: 700,
     margin: '16px 0',
-    color: '#4f8cff',
+    color: '#2e8b57',
     textAlign: 'center',
     minHeight: 24,
     letterSpacing: '-0.5px',
