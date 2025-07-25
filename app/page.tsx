@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 
 import Tesseract from 'tesseract.js'
 
@@ -21,7 +21,7 @@ const QUESTIONS_PER_SET = 5
 function HomePage() {
   const [mode, setMode] = useState<Mode>('home')
   const [flashcards, setFlashcards] = useState<Flashcard[]>([])
-  //const [quizzes, setQuizzes] = useState<Quiz[]>([])
+  const [quizzes, setQuizzes] = useState<Quiz[]>([])
   //const [quizAnswers, setQuizAnswers] = useState<string[]>([]);
   const [quizCount] = useState(10)
   const [quizSetIndex] = useState(0)
@@ -46,7 +46,7 @@ function HomePage() {
   const [scannedText, setScannedText] = useState<string | null>(null)
   const [quizScore, setQuizScore] = useState(0);
   const [quizCompleted, setQuizCompleted] = useState(false);
-  const [dictatedText, setDictatedText] = useState<string>('');
+  //const [dictatedText, setDictatedText] = useState<string>('');
   const [timedOut, setTimedOut] = useState(false)
 
   const handleVideoCanPlay = () => {
@@ -54,7 +54,7 @@ function HomePage() {
   }
 
   // --- Logic ---
-  //const quizzesToShow = quizzes.slice(0, quizCount)
+  const quizzesToShow = quizzes.slice(0, quizCount)
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -240,6 +240,9 @@ function HomePage() {
   const restartQuiz = () => {
     setCurrentQuiz(0)
     setQuizFeedback(null)
+    setQuizScore(0)
+    setQuizCompleted(false)
+    setTimedOut(false)
   }
 
   // --- UI Components ---
@@ -299,15 +302,33 @@ function HomePage() {
   function QuizCard() {
     const [selected, setSelected] = useState<string | null>(null)
     const [showAnswer, setShowAnswer] = useState(false)
+    const [timeLeft, setTimeLeft] = useState(15) // 15 seconds per question
+
+    useEffect(() => {
+      if (showAnswer) return
+      setTimeLeft(15)
+      setTimedOut(false)
+      const timer = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer)
+            setTimedOut(true)
+            setShowAnswer(true)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+      return () => clearInterval(timer)
+    }, [currentQuiz, showAnswer])
 
     const current = quizzesToShow[quizSetIndex * QUESTIONS_PER_SET + currentQuiz]
 
     const handleSelect = (option: string) => {
-      if (showAnswer) return
+      if (showAnswer || timedOut) return
       setSelected(option)
-      const isCorrect = option === current.answer
-      setQuizFeedback({ correct: isCorrect, selected: option, answer: current.answer })
-      if (isCorrect) setQuizScore((prev: number) => prev + 1)
+      handleAnswer(option)
+      setShowAnswer(true)
     }
 
     const handleShowAnswer = () => {
@@ -319,6 +340,14 @@ function HomePage() {
         <div className="text-lg font-semibold text-green-800">
           {current.question}
         </div>
+        <div className="text-right text-red-600 font-bold text-lg">
+          Time left: {timeLeft}s
+        </div>
+        {timedOut && (
+          <div className="text-center text-red-600 font-bold mb-2">
+            Time is up! The correct answer is shown.
+          </div>
+        )}
         <div className="flex flex-col gap-2">
           {current.options.map((option, index) => (
             <button
@@ -494,8 +523,23 @@ function HomePage() {
       )}
       {mode === 'quiz' && (
         <div className="w-full max-w-2xl mx-auto px-2 sm:px-4 md:px-8">
-          <p className="text-2xl font-bold text-green-700 mb-4">Your score: {quizScore}</p>
-          <QuizCard />
+          {quizCompleted ? (
+            <div className="text-center my-8">
+              <p className="text-3xl font-bold text-green-700 mb-4">Quiz Completed!</p>
+              <p className="text-2xl mb-4">Your final score: {quizScore}</p>
+              <button
+                className="bg-green-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95"
+                onClick={restartQuiz}
+              >
+                Restart Quiz
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="text-2xl font-bold text-green-700 mb-4">Your score: {quizScore}</p>
+              <QuizCard />
+            </>
+          )}
         </div>
       )}
 
