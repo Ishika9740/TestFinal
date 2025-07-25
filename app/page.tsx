@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react'
 'use client'
+import React, { useState, useRef } from 'react'
 
 import Tesseract from 'tesseract.js'
 
@@ -35,9 +35,6 @@ function HomePage() {
   const [isOcrLoading, setIsOcrLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const [timedOut, setTimedOut] = useState(false);
-  const [quizScore, setQuizScore] = useState(0);
- const [quizCompleted, setQuizCompleted] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
@@ -46,13 +43,14 @@ function HomePage() {
   const [currentFlashcard, setCurrentFlashcard] = useState(0)
   const [flipped, setFlipped] = useState(false)
   const [scannedText, setScannedText] = useState<string | null>(null)
-  const [dictatedText, setDictatedText] = useState<string>('')
+  const [quizScore, setQuizScore] = useState(0);
+  const [quizCompleted, setQuizCompleted] = useState(false);
+  const [dictatedText, setDictatedText] = useState<string>('');
+  const [timedOut, setTimedOut] = useState(false)
 
   const handleVideoCanPlay = () => {
     setCameraLoaded(true)
   }
-
-  const QUESTION_TIME = 15 // seconds
 
   // --- Logic ---
   const quizzesToShow = quizzes.slice(0, quizCount)
@@ -373,8 +371,8 @@ function HomePage() {
 
   // --- Main Render ---
   return (
-    <div className="min-h-screen bg-white font-sans flex flex-col items-center justify-center px-2 sm:px-4 md:px-8">
-      <h1 className="text-3xl sm:text-4xl font-bold text-green-800 text-center bg-brown-700 py-6 rounded-b-2xl mb-8 w-full max-w-2xl mx-auto">
+    <div className="min-h-screen bg-white font-sans text-lg flex flex-col items-center justify-center px-2 sm:px-4 md:px-8">
+      <h1 className="text-4xl sm:text-5xl font-bold text-green-800 text-center bg-brown-700 py-6 rounded-b-2xl mb-8 w-full max-w-2xl mx-auto">
         Study Smart
       </h1>
 
@@ -493,9 +491,9 @@ function HomePage() {
           <FlashcardList />
         </div>
       )}
-
       {mode === 'quiz' && (
         <div className="w-full max-w-2xl mx-auto px-2 sm:px-4 md:px-8">
+          <p className="text-2xl font-bold text-green-700 mb-4">Your score: {quizScore}</p>
           <QuizCard />
         </div>
       )}
@@ -504,7 +502,7 @@ function HomePage() {
       <div className="w-full max-w-xl mx-auto my-6">
         <h2 className="text-lg font-bold text-green-700 mb-2">Scanned Text</h2>
         <div
-          className="bg-gray-50 border border-green-700 rounded-xl p-4 font-mono text-sm text-gray-800 shadow-inner overflow-auto selectable-text"
+          className="bg-gray-50 border border-green-700 rounded-xl p-4 font-mono text-base text-gray-800 shadow-inner overflow-auto selectable-text"
           style={{ maxHeight: '300px', minHeight: '120px', whiteSpace: 'pre-wrap', userSelect: 'text' }}
           id="scannedTextBox"
         >
