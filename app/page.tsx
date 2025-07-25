@@ -1,7 +1,12 @@
 'use client'
 import React, { useState, useRef, useEffect } from 'react'
-
 import Tesseract from 'tesseract.js'
+import ScanSection from './ScanSection'
+import { useAppContext } from './AppContext'
+import type { Dispatch, SetStateAction } from 'react'
+//import type { Mode } from "./page"
+
+type Mode = 'home' | 'scan' | 'flashcards' | 'quiz'
 
 type Flashcard = {
   question: string
@@ -14,15 +19,12 @@ type Quiz = {
   answer: string
 }
 
-type Mode = 'home' | 'scan' | 'flashcards' | 'quiz'
-
 const QUESTIONS_PER_SET = 5
 
 function HomePage() {
   const [mode, setMode] = useState<Mode>('home')
-  const [flashcards, setFlashcards] = useState<Flashcard[]>([])
-  const [quizzes, setQuizzes] = useState<Quiz[]>([])
-  //const [quizAnswers, setQuizAnswers] = useState<string[]>([]);
+  const [quizzes, setQuizzesState] = useState<Quiz[]>([])
+  const [quizAnswers, setQuizAnswers] = useState<string[]>([]);
   const [quizCount] = useState(10)
   const [quizSetIndex] = useState(0)
   const [currentQuiz, setCurrentQuiz] = useState(0)
@@ -43,11 +45,13 @@ function HomePage() {
   const [cameraTimeout, setCameraTimeout] = useState(false)
   const [currentFlashcard, setCurrentFlashcard] = useState(0)
   const [flipped, setFlipped] = useState(false)
-  const [scannedText, setScannedText] = useState<string | null>(null)
+  const [localScannedText, setLocalScannedText] = useState<string | null>(null)
   const [quizScore, setQuizScore] = useState(0);
   const [quizCompleted, setQuizCompleted] = useState(false);
-  //const [dictatedText, setDictatedText] = useState<string>('');
+  const [dictatedText, setDictatedText] = useState<string>('');
   const [timedOut, setTimedOut] = useState(false)
+
+  const { setFlashcards, setQuizzes, setScannedText } = useAppContext();
 
   const handleVideoCanPlay = () => {
     setCameraLoaded(true)
@@ -67,7 +71,7 @@ function HomePage() {
       }).then(({ data: { text } }) => {
         generateFlashcards(text)
         generateQuizzes(text)
-        setScannedText(text)
+        setLocalScannedText(text)
         setMode('flashcards')
         setOcrProgress(0)
         setIsOcrLoading(false)
@@ -128,6 +132,7 @@ function HomePage() {
       }
     })
     setQuizzes(quizzesGenerated)
+    setQuizzesState(quizzesGenerated)
   }
 
   const shuffle = (array: string[]) => {
@@ -248,6 +253,7 @@ function HomePage() {
   // --- UI Components ---
   // FlashcardList component (replace your current one)
   function FlashcardList() {
+    const { flashcards } = useAppContext();
     if (flashcards.length > 0) {
       return (
         <div className="flex flex-col items-center gap-6">
@@ -399,6 +405,24 @@ function HomePage() {
     )
   }
 
+  // Loader component
+  function Loader({ message, progress }: { message: string; progress?: number }) {
+    return (
+      <div className="w-full max-w-md mx-auto my-4 flex flex-col items-center">
+        <div className="text-green-700 font-semibold mb-2">{message}</div>
+        {typeof progress === 'number' && (
+          <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
+            <div
+              className="bg-green-700 h-3 rounded-full"
+              style={{ width: `${progress * 100}%` }}
+            />
+          </div>
+        )}
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-green-700 border-solid" />
+      </div>
+    )
+  }
+
   // --- Main Render ---
   return (
     <div className="min-h-screen bg-white font-sans text-lg flex flex-col items-center justify-center px-2 sm:px-4 md:px-8">
@@ -428,92 +452,7 @@ function HomePage() {
       )}
 
       {mode === 'scan' && (
-        <div className="w-full max-w-lg mx-auto flex flex-col items-center gap-6 py-8 bg-white rounded-xl shadow-lg">
-          {!scanning && (
-            <div className="w-full flex flex-col items-center gap-4">
-              <button className="bg-green-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-green-400 w-full" onClick={startCamera}>Start Camera</button>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                ref={fileInputRef}
-                className="mb-4 px-4 py-2 rounded-xl border border-green-300 shadow focus:outline-none focus:ring-2 focus:ring-green-400 transition-all duration-200 w-full"
-              />
-              <p className="text-center text-brown-700">Scan an image or use your camera to extract text.</p>
-              {cameraError && <p className="text-center text-red-600">{cameraError}</p>}
-              <button className="bg-white text-green-700 px-8 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:bg-green-50 hover:scale-105 active:scale-95 border border-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 w-full" onClick={() => setMode('home')}>Back</button>
-            </div>
-          )}
-          {scanning && (
-            <div className="flex flex-col items-center gap-4 w-full">
-              <div className="relative border-4 border-brown-700 rounded-xl mb-4 w-full max-w-xs h-64 flex items-center justify-center bg-gray-100">
-                <video
-                  ref={videoRef}
-                  className="w-full h-full rounded-xl bg-gray-900"
-                  autoPlay
-                  muted
-                  onCanPlay={handleVideoCanPlay}
-                />
-                <canvas ref={canvasRef} style={{ display: 'none' }} />
-                {countdown !== null && (
-                  <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center text-6xl text-green-700 font-bold z-10">
-                    {countdown === 0 ? 'Capture!' : countdown}
-                  </div>
-                )}
-              </div>
-              {!cameraLoaded && !cameraTimeout && (
-                <div className="text-brown-700 mb-2">Loading camera...</div>
-              )}
-              {cameraTimeout && (
-                <div className="text-red-600 mb-2">
-                  Camera did not load. Please check your permissions or try again.
-                </div>
-              )}
-              <div className="flex gap-4 w-full">
-                <button
-                  className="bg-green-700 text-white px-6 py-2 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-green-400 flex-1"
-                  onClick={startCountdown}
-                  disabled={!cameraLoaded || countdown !== null}
-                >
-                  {countdown !== null ? 'Get Ready...' : 'Capture & OCR'}
-                </button>
-                <button
-                  className="bg-gray-400 text-white px-6 py-2 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:bg-gray-500 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-gray-300 flex-1"
-                  onClick={stopCamera}
-                  disabled={countdown !== null}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-          {ocrProgress > 0 && (
-            <div className="w-full max-w-xs mx-auto mt-4">
-              <div className="bg-gray-200 rounded-xl h-4 overflow-hidden">
-                <div
-                  className="bg-green-700 h-full transition-all duration-200"
-                  style={{ width: `${Math.round(ocrProgress * 100)}%` }}
-                />
-              </div>
-              <div className="text-center mt-2 text-green-700 font-semibold">
-                OCR Progress: {Math.round(ocrProgress * 100)}%
-              </div>
-            </div>
-          )}
-          {isOcrLoading && (
-            <div className="flex flex-col items-center justify-center mt-4">
-              <div className="loader mb-2" style={{
-                border: '4px solid #eee',
-                borderTop: '4px solid #2e8b57',
-                borderRadius: '50%',
-                width: 40,
-                height: 40,
-                animation: 'spin 1s linear infinite'
-              }} />
-              <span className="text-green-700 font-semibold">Processing text…</span>
-            </div>
-          )}
-        </div>
+        <ScanSection setMode={setMode} />
       )}
 
       {mode === 'flashcards' && (
@@ -551,7 +490,7 @@ function HomePage() {
           style={{ maxHeight: '300px', minHeight: '120px', whiteSpace: 'pre-wrap', userSelect: 'text' }}
           id="scannedTextBox"
         >
-          {scannedText || "No text scanned yet."}
+          {localScannedText || "No text scanned yet."}
         </div>
         <button
           className="mt-4 bg-green-700 text-white px-5 py-2 rounded-lg font-semibold shadow transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95"
@@ -569,6 +508,46 @@ function HomePage() {
           Generate Flashcards from Selection
         </button>
       </div>
+
+      {scanning && (
+        <div className="flex flex-col items-center gap-4">
+          <video
+            ref={videoRef}
+            autoPlay
+            onCanPlay={handleVideoCanPlay}
+            className="rounded-xl border border-green-700 shadow-lg w-full max-w-md"
+          />
+          <button
+            className="bg-red-600 text-white px-6 py-2 rounded-xl"
+            onClick={stopCamera}
+          >
+            Stop Camera
+          </button>
+        </div>
+      )}
+
+      {(isOcrLoading || timedOut /* || dictatedText === '' */) && (
+        <Loader
+          message={
+            isOcrLoading
+              ? `Reading text... ${Math.round(ocrProgress * 100)}%`
+              : timedOut
+              ? "Time's up! Showing the answer..."
+              : "Listening for dictated text..."
+          }
+          progress={isOcrLoading ? ocrProgress : undefined}
+        />
+      )}
+
+      {cameraError && (
+        <div className="text-red-600 font-semibold mb-2">{cameraError}</div>
+      )}
+      {countdown !== null && (
+        <div className="text-3xl font-bold text-green-700 mb-4">Capturing in {countdown}...</div>
+      )}
+      {cameraTimeout && (
+        <div className="text-red-600 font-semibold mb-2">Camera timed out. Please try again.</div>
+      )}
     </div>
   )
 }

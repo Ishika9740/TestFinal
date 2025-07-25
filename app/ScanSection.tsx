@@ -1,9 +1,10 @@
 import { useAppContext } from './AppContext'
+import type { Dispatch, SetStateAction } from 'react'
 
-export default function ScanSection({ setMode }: { setMode: (mode: string) => void }) {
+type Mode = 'home' | 'scan' | 'flashcards' | 'quiz'
+export default function ScanSection({ setMode }: { setMode: Dispatch<SetStateAction<Mode>> }) {
   const { setScannedText, setFlashcards, setQuizzes } = useAppContext()
 
-  // Example functions to generate flashcards and quizzes from text
   function generateFlashcards(text: string) {
     return text
       .split('\n')
@@ -25,26 +26,28 @@ export default function ScanSection({ setMode }: { setMode: (mode: string) => vo
       }))
   }
 
-  // Example: handle OCR result
   const handleScanResult = (text: string) => {
     setScannedText(text)
-    // Optionally generate flashcards and quizzes from text
     setFlashcards(generateFlashcards(text))
     setQuizzes(generateQuizzes(text))
-    setMode('flashcards') // or whatever mode you want to switch to
+    setMode('flashcards')
   }
 
-  // ...render scan UI and call handleScanResult when scan is done...
-
   return (
-    <div>
-      {/* Your scan UI here */}
-      {/* Example button to simulate scan */}
+    <div className="flex flex-col items-center gap-4">
+      {/* Scan Camera Button */}
       <button
         onClick={() => handleScanResult('Example scanned text')}
-        className="bg-green-700 text-white px-6 py-2 rounded-xl"
+        className="bg-green-700 text-white px-6 py-2 rounded-xl mb-2"
       >
-        Simulate Scan
+        Scan Camera
+      </button>
+      {/* Back Button */}
+      <button
+        onClick={() => setMode('home')}
+        className="bg-gray-400 text-white px-6 py-2 rounded-xl"
+      >
+        Back
       </button>
     </div>
   )
