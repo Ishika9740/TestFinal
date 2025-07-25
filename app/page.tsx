@@ -1,6 +1,6 @@
+import React, { useState, useRef } from 'react'
 'use client'
 
-import React, { useRef, useState } from 'react'
 import Tesseract from 'tesseract.js'
 
 type Flashcard = {
@@ -35,39 +35,24 @@ function HomePage() {
   const [isOcrLoading, setIsOcrLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const [timedOut, setTimedOut] = useState(false);
+  const [quizScore, setQuizScore] = useState(0);
+ const [quizCompleted, setQuizCompleted] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
-  const [quizScore, setQuizScore] = useState(0)
-  const [quizCompleted, setQuizCompleted] = useState(false)
   const [countdown, setCountdown] = useState<number | null>(null)
   const [cameraLoaded, setCameraLoaded] = useState(false)
   const [cameraTimeout, setCameraTimeout] = useState(false)
   const [currentFlashcard, setCurrentFlashcard] = useState(0)
   const [flipped, setFlipped] = useState(false)
+  const [scannedText, setScannedText] = useState<string | null>(null)
+  const [dictatedText, setDictatedText] = useState<string>('')
+
+  const handleVideoCanPlay = () => {
+    setCameraLoaded(true)
+  }
+
   const QUESTION_TIME = 15 // seconds
-  const [timeLeft] = useState(QUESTION_TIME)
-  const [timedOut] = useState(false)
-
-  // --- Styles ---
-  const buttonStyle = {
-    backgroundColor: '#2e8b57', // green
-    color: '#fff',
-    padding: '12px 24px',
-    margin: '10px',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: 600,
-  }
-
-  const containerStyle = {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    paddingTop: '2rem',
-  }
-
 
   // --- Logic ---
   const quizzesToShow = quizzes.slice(0, quizCount)
@@ -83,6 +68,7 @@ function HomePage() {
       }).then(({ data: { text } }) => {
         generateFlashcards(text)
         generateQuizzes(text)
+        setScannedText(text)
         setMode('flashcards')
         setOcrProgress(0)
         setIsOcrLoading(false)
@@ -91,27 +77,54 @@ function HomePage() {
   }
 
   const generateFlashcards = (text: string) => {
-    const lines = text.split('\n').filter((line) => line.trim() !== '')
-    const cards = lines.map((line, i) => ({
-      question: `What is line ${i + 1}?`,
-      answer: line,
-    }))
+    const lines = text.split('\n').filter(line => line.trim() !== '')
+    const cards = lines.map((line) => {
+      // Extract keyword: first capitalized word or first word
+      const keywordMatch = line.match(/\b([A-Z][a-zA-Z0-9]*)\b/)
+      const keyword = keywordMatch ? keywordMatch[1] : line.split(' ')[0]
+      return {
+        question: `What is "${keyword}"?`,
+        answer: line,
+      }
+    })
     setFlashcards(cards)
   }
 
   const generateQuizzes = (text: string) => {
     const lines = text.split('\n').filter((line) => line.trim() !== '')
     const quizzesGenerated = lines.map((line) => {
-      const options = [line]
-      while (options.length < 4) {
-        const randomLine = lines[Math.floor(Math.random() * lines.length)]
-        if (!options.includes(randomLine)) {
-          options.push(randomLine)
+      // Helper to reword for distractors
+      const makeDistractor = (sentence: string) => {
+        // Remove first keyword/capitalized word
+        const keywordMatch = sentence.match(/\b([A-Z][a-zA-Z0-9]*)\b/)
+        if (keywordMatch) {
+          // Replace keyword with a generic word
+          return sentence.replace(keywordMatch[1], "Something")
+        }
+        // Shuffle words for another distractor
+        const words = sentence.split(' ')
+        if (words.length > 3) {
+          const shuffled = [...words].sort(() => Math.random() - 0.5)
+          return shuffled.join(' ')
+        }
+        // Add a generic prefix for another distractor
+        return "Fact: " + sentence
+      }
+
+      // Generate 3 distractors
+      const distractors: string[] = []
+      while (distractors.length < 3) {
+        const distractor = makeDistractor(line)
+        // Ensure distractor is not the same as the correct answer or already added
+        if (distractor !== line && !distractors.includes(distractor)) {
+          distractors.push(distractor)
         }
       }
+
+      const options = shuffle([line, ...distractors])
       return {
-        question: `Which line was: "${line.slice(0, 10)}..."?`,
-        options: shuffle(options),
+        question: `Which is correct about "${line.slice(0, 10)}..."?`,
+        options,
         answer: line,
       }
     })
@@ -132,12 +145,12 @@ function HomePage() {
     const current = quizzesToShow[quizSetIndex * QUESTIONS_PER_SET + currentQuiz]
     const isCorrect = option === current.answer
     setQuizFeedback({ correct: isCorrect, selected: option, answer: current.answer })
-    if (isCorrect) setQuizScore((prev) => prev + 1)
+    if (isCorrect) setQuizScore((prev: number) => prev + 1)
   }
 
   const handleQuizNext = () => {
     if (currentQuiz < Math.min(QUESTIONS_PER_SET, quizzesToShow.length - quizSetIndex * QUESTIONS_PER_SET) - 1) {
-      setCurrentQuiz((prev) => prev + 1)
+      setCurrentQuiz((prev: number) => prev + 1)
       setQuizFeedback(null)
     } else {
       setQuizCompleted(true)
@@ -146,7 +159,7 @@ function HomePage() {
 
   const handleQuizPrev = () => {
     if (currentQuiz > 0) {
-      setCurrentQuiz((prev) => prev - 1)
+      setCurrentQuiz((prev: number) => prev - 1)
       setQuizFeedback(null)
     }
   }
@@ -203,6 +216,7 @@ function HomePage() {
     }).then(({ data: { text } }) => {
       generateFlashcards(text)
       generateQuizzes(text)
+      setScannedText(text)
       setMode('flashcards')
       setOcrProgress(0)
       setIsOcrLoading(false)
@@ -227,184 +241,39 @@ function HomePage() {
   const restartQuiz = () => {
     setCurrentQuiz(0)
     setQuizFeedback(null)
-    setQuizScore(0)
-    setQuizCompleted(false)
-  }
-
-  const shuffleFlashcards = () => {
-    setFlashcards((prev) => {
-      const arr = [...prev]
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[arr[i], arr[j]] = [arr[j], arr[i]]
-      }
-      return arr
-    })
   }
 
   // --- UI Components ---
-  function QuizCard() {
-    const quiz = quizzesToShow[quizSetIndex * QUESTIONS_PER_SET + currentQuiz]
-    if (!quiz) return null
-
-    // Progress bar width
-    const progress = ((currentQuiz + 1) / Math.min(QUESTIONS_PER_SET, quizzesToShow.length - quizSetIndex * QUESTIONS_PER_SET)) * 100
-
-    return (
-      <div className="max-w-md w-full mx-auto bg-white rounded-lg shadow p-4 border-2 border-brown-700 mb-4 transition-colors duration-500">
-        {/* Progress Bar / Steps */}
-        <div className="w-80 mx-auto mb-4 h-3 bg-gray-200 rounded-lg overflow-hidden relative">
-          <div
-            className="bg-green-700 h-full transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-          <div className="absolute w-full top-0 left-0 text-center text-xs text-brown-700 font-semibold leading-3">
-            Question {currentQuiz + 1} / {Math.min(QUESTIONS_PER_SET, quizzesToShow.length - quizSetIndex * QUESTIONS_PER_SET)}
-          </div>
-        </div>
-        {/* Timer */}
-        <div className={`text-center mb-2 font-bold text-lg tracking-wide ${timeLeft <= 5 ? 'text-red-700' : 'text-green-700'}`}>
-          ⏰ {timeLeft}s
-        </div>
-        <div className={`
-          rounded-lg p-4 mb-4 transition-colors duration-500
-          ${timedOut
-            ? 'bg-yellow-100 border-yellow-300'
-            : quizFeedback
-              ? quizFeedback.correct
-                ? 'bg-green-100 border-green-700'
-                : 'bg-red-100 border-red-700'
-              : 'bg-white border-brown-700'}
-          border-2
-          shadow
-          max-w-md mx-auto
-        `}>
-          <p className="font-semibold mb-3">{quiz.question}</p>
-          <div>
-            {quiz.options.map((option, i) => (
-              <button
-                key={i}
-                onClick={() => handleAnswer(option)}
-                className={`
-                  w-full block px-4 py-2 my-2 rounded-md font-medium text-base text-left
-                  transition-all duration-300
-                  ${quizFeedback && quizFeedback.selected === option
-                    ? quizFeedback.correct
-                      ? 'bg-green-200 border-2 border-green-700 text-green-900'
-                      : 'bg-red-200 border-2 border-red-700 text-red-900'
-                    : timedOut && quiz.answer === option
-                      ? 'bg-yellow-100 border-2 border-yellow-400 text-yellow-900'
-                      : 'bg-white border border-gray-300 text-gray-800 hover:bg-green-50 hover:scale-105 active:scale-95'}
-                  flex items-center
-                  ${quizFeedback || timedOut ? 'cursor-default' : 'cursor-pointer'}
-                `}
-                disabled={!!quizFeedback || timedOut}
-              >
-                <span className="flex-1">{option}</span>
-                {/* Animated icon */}
-                {quizFeedback && quizFeedback.selected === option && (
-                  quizFeedback.correct
-                    ? <span className="ml-2 text-green-700 text-xl transition-colors duration-300">✔️</span>
-                    : <span className="ml-2 text-red-700 text-xl transition-colors duration-300">❌</span>
-                )}
-                {timedOut && quiz.answer === option && (
-                  <span className="ml-2 text-yellow-500 text-xl transition-colors duration-300">⏰</span>
-                )}
-              </button>
-            ))}
-          </div>
-          {/* Feedback */}
-          {quizFeedback && (
-            <p className={`mt-3 font-semibold text-lg transition-colors duration-300 ${quizFeedback.correct ? 'text-green-700' : 'text-red-700'}`}>
-              {quizFeedback.correct ? '✅ Correct!' : `❌ Incorrect. Answer: ${quizFeedback.answer}`}
-            </p>
-          )}
-          {timedOut && (
-            <p className="mt-3 font-semibold text-lg text-red-700 transition-colors duration-300">
-              ⏰ Time&apos;s up! Answer: {quiz.answer}
-            </p>
-          )}
-          <div className="flex justify-center gap-4 mt-4">
-            <button
-              onClick={handleQuizPrev}
-              className={`
-                bg-green-700 text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2
-                transition-transform duration-150 hover:scale-105 active:scale-95
-                disabled:bg-gray-300 disabled:text-gray-500
-              `}
-              disabled={currentQuiz === 0 || !!quizFeedback || timedOut}
-            >
-              <span role="img" aria-label="Prev">⬅️</span> Prev
-            </button>
-            <button
-              onClick={handleQuizNext}
-              className={`
-                bg-green-700 text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 w-full sm:w-auto
-                transition-transform duration-150 hover:scale-105 active:scale-95
-                disabled:bg-gray-300 disabled:text-gray-500
-              `}
-              disabled={
-                currentQuiz >= Math.min(QUESTIONS_PER_SET, quizzesToShow.length - quizSetIndex * QUESTIONS_PER_SET) - 1
-                || (!quizFeedback && !timedOut)
-              }
-            >
-              {currentQuiz === Math.min(QUESTIONS_PER_SET, quizzesToShow.length - quizSetIndex * QUESTIONS_PER_SET) - 1
-                ? <>Finish <span role="img" aria-label="Finish">✅</span></>
-                : <>Next <span role="img" aria-label="Next">➡️</span></>}
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Example: Replace your navigation buttons and flashcard grid with Tailwind classes and icons
-
   // FlashcardList component (replace your current one)
   function FlashcardList() {
-    if (flashcards.length > 1) {
+    if (flashcards.length > 0) {
       return (
-        <div className="w-full">
-          <div
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 justify-items-center mb-8 w-full max-w-5xl mx-auto"
+        <div className="flex flex-col items-center gap-6">
+          <div className="flashcard relative cursor-pointer" tabIndex={0}
+            onClick={() => setFlipped((prev) => !prev)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') setFlipped((prev) => !prev)
+            }}
           >
-            {flashcards.map((card, idx) => (
-              <div
-                key={idx}
-                className={`flashcard${flipped && currentFlashcard === idx ? ' flipped' : ''} relative cursor-pointer transition-shadow duration-200 outline-none`}
-                tabIndex={0}
-                onClick={() => {
-                  setCurrentFlashcard(idx)
-                  setFlipped((prev) => (currentFlashcard === idx ? !prev : true))
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    setCurrentFlashcard(idx)
-                    setFlipped((prev) => (currentFlashcard === idx ? !prev : true))
-                  }
-                }}
-              >
-                <div className={`flashcard-inner${flipped && currentFlashcard === idx ? ' flipped' : ''}`}>
-                  <div className="flashcard-front absolute w-full h-full bg-white rounded-lg shadow flex flex-col items-center justify-center transition-shadow duration-200">
-                    <p className="font-semibold text-green-700">Q:</p>
-                    <p>{card.question}</p>
-                    <div className="mt-4 text-brown-700 text-sm">Click to flip</div>
-                  </div>
-                  <div className="flashcard-back absolute w-full h-full bg-green-50 rounded-lg shadow flex flex-col items-center justify-center transition-shadow duration-200" style={{ transform: 'rotateY(180deg)' }}>
-                    <p className="font-semibold text-brown-700">A:</p>
-                    <p>{card.answer}</p>
-                    <div className="mt-4 text-green-700 text-sm">Click to flip</div>
-                  </div>
-                </div>
+            <div className={`flashcard-inner${flipped ? ' flipped' : ''}`}>
+              <div className="flashcard-front bg-white">
+                <p className="font-semibold text-green-700">Q:</p>
+                <p>{flashcards[currentFlashcard].question}</p>
+                <div className="mt-4 text-brown-700 text-sm">Click to flip</div>
               </div>
-            ))}
+              <div className="flashcard-back">
+                <p className="font-semibold text-brown-700">A:</p>
+                <p>{flashcards[currentFlashcard].answer}</p>
+                <div className="mt-4 text-green-700 text-sm">Click to flip</div>
+              </div>
+            </div>
           </div>
           <div className="flex justify-center gap-4">
             <button
               className="bg-green-700 text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 transition-transform duration-150 hover:scale-105 active:scale-95"
               onClick={() => {
-                setCurrentFlashcard((prev) => Math.max(0, prev - 1))
-                setFlipped(false)
+                setCurrentFlashcard((prev: number) => Math.max(0, prev - 1));
+                setFlipped(false);
               }}
               disabled={currentFlashcard === 0}
             >
@@ -413,235 +282,252 @@ function HomePage() {
             <button
               className="bg-green-700 text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 transition-transform duration-150 hover:scale-105 active:scale-95"
               onClick={() => {
-                setCurrentFlashcard((prev) => Math.min(flashcards.length - 1, prev + 1))
-                setFlipped(false)
+                setCurrentFlashcard((prev: number) => Math.min(flashcards.length - 1, prev + 1))
+                setFlipped(false);
               }}
               disabled={currentFlashcard === flashcards.length - 1}
             >
               Next <span role="img" aria-label="Next">➡️</span>
             </button>
-            <button
-              className="bg-brown-700 text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 transition-transform duration-150 hover:scale-105 active:scale-95"
-              onClick={shuffleFlashcards}
-            >
-              <span role="img" aria-label="Shuffle">🔀</span> Shuffle
-            </button>
-            <button
-              className="bg-gray-400 text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 transition-transform duration-150 hover:scale-105 active:scale-95"
-              onClick={() => setMode('home')}
-            >
-              <span role="img" aria-label="Back">🏠</span> Back
-            </button>
           </div>
         </div>
       )
     }
+    return <div className="text-center text-brown-700">No flashcards available.</div>
+  }
 
-    // Fallback for 0 or 1 flashcard
+  // QuizCard component
+  function QuizCard() {
+    const [selected, setSelected] = useState<string | null>(null)
+    const [showAnswer, setShowAnswer] = useState(false)
+
+    const current = quizzesToShow[quizSetIndex * QUESTIONS_PER_SET + currentQuiz]
+
+    const handleSelect = (option: string) => {
+      if (showAnswer) return
+      setSelected(option)
+      const isCorrect = option === current.answer
+      setQuizFeedback({ correct: isCorrect, selected: option, answer: current.answer })
+      if (isCorrect) setQuizScore((prev: number) => prev + 1)
+    }
+
+    const handleShowAnswer = () => {
+      setShowAnswer(true)
+    }
+
     return (
-      <div className="flex flex-col items-center">
-        {flashcards.length === 1 && (
-          <div
-            className={`flashcard${flipped ? ' flipped' : ''} relative cursor-pointer transition-shadow duration-200 outline-none`}
-            tabIndex={0}
-            onClick={() => setFlipped((prev) => !prev)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') setFlipped((prev) => !prev)
-            }}
+      <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col gap-4">
+        <div className="text-lg font-semibold text-green-800">
+          {current.question}
+        </div>
+        <div className="flex flex-col gap-2">
+          {current.options.map((option, index) => (
+            <button
+              key={index}
+              onClick={() => handleSelect(option)}
+              className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 flex items-center gap-2 justify-between
+              ${selected === option ? 'bg-green-700 text-white' : 'bg-gray-100 text-green-700'}
+              ${showAnswer && option === current.answer ? 'ring-2 ring-green-700' : ''}
+              ${showAnswer && option === selected && option !== current.answer ? 'bg-red-500 text-white' : ''}
+              `}
+              disabled={showAnswer}
+            >
+              {option}
+              {showAnswer && option === current.answer && (
+                <span className="text-green-300" role="img" aria-label="Correct"> ✔️</span>
+              )}
+              {showAnswer && option === selected && option !== current.answer && (
+                <span className="text-red-300" role="img" aria-label="Incorrect"> ❌</span>
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="flex justify-between gap-4">
+          <button
+            onClick={handleQuizPrev}
+            className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold transition-all duration-200 hover:bg-gray-300 flex-1"
+            disabled={currentQuiz === 0}
           >
-            <div className={`flashcard-inner${flipped ? ' flipped' : ''}`}>
-              <div className="flashcard-front absolute w-full h-full bg-white rounded-lg shadow flex flex-col items-center justify-center transition-shadow duration-200">
-                <p className="font-semibold text-green-700">Q:</p>
-                <p>{flashcards[0].question}</p>
-                <div className="mt-4 text-brown-700 text-sm">Click to flip</div>
-              </div>
-              <div className="flashcard-back absolute w-full h-full bg-green-50 rounded-lg shadow flex flex-col items-center justify-center transition-shadow duration-200" style={{ transform: 'rotateY(180deg)' }}>
-                <p className="font-semibold text-brown-700">A:</p>
-                <p>{flashcards[0].answer}</p>
-                <div className="mt-4 text-green-700 text-sm">Click to flip</div>
-              </div>
-            </div>
+            <span role="img" aria-label="Previous">⬅️</span> Previous
+          </button>
+          <button
+            onClick={showAnswer ? handleQuizNext : handleShowAnswer}
+            className="bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-200 hover:bg-green-800 flex-1"
+          >
+            {showAnswer ? 'Next Question' : 'Show Answer'}
+          </button>
+        </div>
+        {showAnswer && (
+          <div className="mt-4 text-center">
+            <button
+              onClick={handleQuizNext}
+              className="bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-200 hover:bg-green-800"
+            >
+              Next Question
+            </button>
           </div>
         )}
-        <button
-          className="bg-brown-700 text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 mt-4 transition-transform duration-150 hover:scale-105 active:scale-95"
-          onClick={shuffleFlashcards}
-        >
-          <span role="img" aria-label="Shuffle">🔀</span> Shuffle
-        </button>
-        <button
-          className="bg-gray-400 text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 mt-2 transition-transform duration-150 hover:scale-105 active:scale-95"
-          onClick={() => setMode('home')}
-        >
-          <span role="img" aria-label="Back">🏠</span> Back
-        </button>
       </div>
     )
   }
 
   // --- Main Render ---
   return (
-    <div className="min-h-screen bg-white font-sans" style={{ fontFamily: "'Inter', Arial, sans-serif" }}>
-      <h1 className="text-3xl sm:text-4xl font-bold text-green-800 text-center bg-brown-700 py-6 rounded-b-2xl mb-8">
+    <div className="min-h-screen bg-white font-sans flex flex-col items-center justify-center px-2 sm:px-4 md:px-8">
+      <h1 className="text-3xl sm:text-4xl font-bold text-green-800 text-center bg-brown-700 py-6 rounded-b-2xl mb-8 w-full max-w-2xl mx-auto">
         Study Smart
       </h1>
 
       {mode === 'home' && (
-        <div className="flex flex-col items-center gap-4 py-8">
-          <button className="bg-green-700 text-white px-8 py-3 rounded-lg text-lg font-semibold shadow transition-transform duration-150 hover:scale-105 active:scale-95 w-64 max-w-full" onClick={() => setMode('scan')}>Scan</button>
-          <button className="bg-green-700 text-white px-8 py-3 rounded-lg text-lg font-semibold shadow transition-transform duration-150 hover:scale-105 active:scale-95 w-64 max-w-full" onClick={() => setMode('flashcards')}>Flashcards</button>
-          <button className="bg-green-700 text-white px-8 py-3 rounded-lg text-lg font-semibold shadow transition-transform duration-150 hover:scale-105 active:scale-95 w-64 max-w-full" onClick={() => setMode('quiz')}>Quiz</button>
+        <div className="w-full max-w-md mx-auto flex flex-col items-center gap-6 py-8 bg-white rounded-xl shadow-lg">
+          <button className="bg-green-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-green-400 w-full">
+            Scan with Camera
+          </button>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            ref={fileInputRef}
+            className="mb-4 px-4 py-2 rounded-xl border border-green-300 shadow focus:outline-none focus:ring-2 focus:ring-green-400 transition-all duration-200 w-full"
+          />
+          <button
+            className="bg-white text-green-700 px-8 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:bg-green-50 hover:scale-105 active:scale-95 border border-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 w-full"
+            onClick={() => setMode('home')}
+          >
+            Back
+          </button>
         </div>
       )}
 
       {mode === 'scan' && (
-        <div style={containerStyle}>
+        <div className="w-full max-w-lg mx-auto flex flex-col items-center gap-6 py-8 bg-white rounded-xl shadow-lg">
           {!scanning && (
-            <>
-              <button style={buttonStyle} onClick={startCamera}>Start Camera</button>
+            <div className="w-full flex flex-col items-center gap-4">
+              <button className="bg-green-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-green-400 w-full" onClick={startCamera}>Start Camera</button>
               <input
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
                 ref={fileInputRef}
-                style={{ marginBottom: '1rem' }}
+                className="mb-4 px-4 py-2 rounded-xl border border-green-300 shadow focus:outline-none focus:ring-2 focus:ring-green-400 transition-all duration-200 w-full"
               />
-              <p>Scan an image or use your camera to extract text.</p>
-              {cameraError && <p style={{ color: 'red' }}>{cameraError}</p>}
-              <button style={buttonStyle} onClick={() => setMode('home')}>Back</button>
-            </>
+              <p className="text-center text-brown-700">Scan an image or use your camera to extract text.</p>
+              {cameraError && <p className="text-center text-red-600">{cameraError}</p>}
+              <button className="bg-white text-green-700 px-8 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:bg-green-50 hover:scale-105 active:scale-95 border border-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 w-full" onClick={() => setMode('home')}>Back</button>
+            </div>
           )}
           {scanning && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{
-                border: '4px solid #8b5c2e',
-                borderRadius: 12,
-                marginBottom: 12,
-                width: 328,
-                height: 248,
-                boxSizing: 'border-box',
-                position: 'relative',
-                animation: 'borderPulse 1.2s infinite alternate'
-              }}>
+            <div className="flex flex-col items-center gap-4 w-full">
+              <div className="relative border-4 border-brown-700 rounded-xl mb-4 w-full max-w-xs h-64 flex items-center justify-center bg-gray-100">
                 <video
                   ref={videoRef}
-                  style={{
-                    width: 320,
-                    height: 240,
-                    borderRadius: 8,
-                    display: 'block',
-                    background: '#222'
-                  }}
+                  className="w-full h-full rounded-xl bg-gray-900"
                   autoPlay
                   muted
                   onCanPlay={handleVideoCanPlay}
                 />
                 <canvas ref={canvasRef} style={{ display: 'none' }} />
                 {countdown !== null && (
-                  <div style={{
-                    position: 'absolute',
-                    top: 0, left: 0, width: '100%', height: '100%',
-                    background: 'rgba(255,255,255,0.7)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 64,
-                    color: '#2e8b57',
-                    fontWeight: 700,
-                    zIndex: 2
-                  }}>
+                  <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center text-6xl text-green-700 font-bold z-10">
                     {countdown === 0 ? 'Capture!' : countdown}
                   </div>
                 )}
               </div>
               {!cameraLoaded && !cameraTimeout && (
-                <div style={{ color: '#8b5c2e', marginBottom: 8 }}>Loading camera...</div>
+                <div className="text-brown-700 mb-2">Loading camera...</div>
               )}
               {cameraTimeout && (
-                <div style={{ color: 'red', marginBottom: 8 }}>
+                <div className="text-red-600 mb-2">
                   Camera did not load. Please check your permissions or try again.
                 </div>
               )}
-              <button
-                style={buttonStyle}
-                onClick={startCountdown}
-                disabled={!cameraLoaded || countdown !== null}
-              >
-                {countdown !== null ? 'Get Ready...' : 'Capture & OCR'}
-              </button>
-              <button style={buttonStyle} onClick={stopCamera} disabled={countdown !== null}>Cancel</button>
+              <div className="flex gap-4 w-full">
+                <button
+                  className="bg-green-700 text-white px-6 py-2 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-green-400 flex-1"
+                  onClick={startCountdown}
+                  disabled={!cameraLoaded || countdown !== null}
+                >
+                  {countdown !== null ? 'Get Ready...' : 'Capture & OCR'}
+                </button>
+                <button
+                  className="bg-gray-400 text-white px-6 py-2 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:bg-gray-500 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-gray-300 flex-1"
+                  onClick={stopCamera}
+                  disabled={countdown !== null}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
           {ocrProgress > 0 && (
-            <div style={{ width: 320, margin: '16px auto' }}>
-              <div style={{ background: '#eee', borderRadius: 8, height: 16, overflow: 'hidden' }}>
-                <div style={{
-                  width: `${Math.round(ocrProgress * 100)}%`,
-                  background: '#2e8b57',
-                  height: '100%',
-                  transition: 'width 0.2s'
-                }} />
+            <div className="w-full max-w-xs mx-auto mt-4">
+              <div className="bg-gray-200 rounded-xl h-4 overflow-hidden">
+                <div
+                  className="bg-green-700 h-full transition-all duration-200"
+                  style={{ width: `${Math.round(ocrProgress * 100)}%` }}
+                />
               </div>
-              <div style={{ textAlign: 'center', marginTop: 4, color: '#2e8b57', fontWeight: 600 }}>
+              <div className="text-center mt-2 text-green-700 font-semibold">
                 OCR Progress: {Math.round(ocrProgress * 100)}%
               </div>
             </div>
           )}
           {isOcrLoading && (
-            <div style={{ textAlign: 'center', color: '#2e8b57', fontWeight: 600, margin: 16 }}>
-              <div className="loader" style={{
+            <div className="flex flex-col items-center justify-center mt-4">
+              <div className="loader mb-2" style={{
                 border: '4px solid #eee',
                 borderTop: '4px solid #2e8b57',
                 borderRadius: '50%',
                 width: 40,
                 height: 40,
-                margin: '0 auto 12px auto',
                 animation: 'spin 1s linear infinite'
               }} />
-              Scanning image... Please wait.
+              <span className="text-green-700 font-semibold">Processing text…</span>
             </div>
           )}
         </div>
       )}
 
       {mode === 'flashcards' && (
-        <div className="w-full px-2 sm:px-4 md:px-8">
+        <div className="w-full max-w-4xl mx-auto px-2 sm:px-4 md:px-8">
           <FlashcardList />
         </div>
       )}
 
       {mode === 'quiz' && (
-        <div style={containerStyle}>
-          <div style={{ marginBottom: 16, fontWeight: 600, color: '#8b5c2e' }}>
-            Score: {quizScore} / {Math.min(QUESTIONS_PER_SET, quizzesToShow.length - quizSetIndex * QUESTIONS_PER_SET)}
-          </div>
-          {quizCompleted ? (
-            <>
-              <div style={{ color: '#2e8b57', fontWeight: 700, marginBottom: 16 }}>
-                Quiz Complete! Your score: {quizScore} / {Math.min(QUESTIONS_PER_SET, quizzesToShow.length - quizSetIndex * QUESTIONS_PER_SET)}
-              </div>
-              <button style={buttonStyle} onClick={restartQuiz}>Restart Quiz</button>
-              <button style={buttonStyle} onClick={() => setMode('home')}>Back</button>
-            </>
-          ) : (
-            <>
-              {quizzesToShow.length > 0 &&
-                quizzesToShow[quizSetIndex * QUESTIONS_PER_SET + currentQuiz] && (
-                  <QuizCard />
-                )}
-              <button style={buttonStyle} onClick={restartQuiz}>Restart Quiz</button>
-              <button style={buttonStyle} onClick={() => setMode('home')}>Back</button>
-            </>
-          )}
+        <div className="w-full max-w-2xl mx-auto px-2 sm:px-4 md:px-8">
+          <QuizCard />
         </div>
       )}
+
+      {/* Scanned Text Viewer (only once, outside of mode blocks) */}
+      <div className="w-full max-w-xl mx-auto my-6">
+        <h2 className="text-lg font-bold text-green-700 mb-2">Scanned Text</h2>
+        <div
+          className="bg-gray-50 border border-green-700 rounded-xl p-4 font-mono text-sm text-gray-800 shadow-inner overflow-auto selectable-text"
+          style={{ maxHeight: '300px', minHeight: '120px', whiteSpace: 'pre-wrap', userSelect: 'text' }}
+          id="scannedTextBox"
+        >
+          {scannedText || "No text scanned yet."}
+        </div>
+        <button
+          className="mt-4 bg-green-700 text-white px-5 py-2 rounded-lg font-semibold shadow transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95"
+          onClick={() => {
+            const selection = window.getSelection()
+            const selectedText = selection ? selection.toString().trim() : ''
+            if (selectedText) {
+              generateFlashcards(selectedText)
+              setMode('flashcards')
+            } else {
+              alert('Please highlight some text to generate flashcards.')
+            }
+          }}
+        >
+          Generate Flashcards from Selection
+        </button>
+      </div>
     </div>
   )
 }
 
-
-
-const handleVideoCanPlay = () => {
-  // Your logic here, or leave empty if not needed
-};
 export default HomePage
