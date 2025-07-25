@@ -77,7 +77,7 @@ function HomePage() {
         const ctx = canvas.getContext('2d')
         if (!ctx) return
         ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
-        const dataUrl = canvas.toDataURL('image/png')
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
         Tesseract.recognize(dataUrl, 'eng', {
           logger: m => {
             if (m.status === 'recognizing text' && m.progress) setOcrProgress(m.progress)
@@ -85,7 +85,8 @@ function HomePage() {
         }).then(({ data: { text } }) => {
           generateFlashcards(text)
           generateQuizzes(text)
-          setLocalScannedText(text)
+          setScannedText(text)
+          setLocalScannedText(text) // <-- Add this line
           setMode('flashcards')
           setOcrProgress(0)
           setIsOcrLoading(false)
@@ -233,7 +234,7 @@ function HomePage() {
     setOcrProgress(0)
     setScanning(false)
     stopCamera()
-    const dataUrl = canvas.toDataURL('image/png')
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
     setIsOcrLoading(true)
     Tesseract.recognize(dataUrl, 'eng', {
       logger: m => {
@@ -244,6 +245,7 @@ function HomePage() {
       generateFlashcards(text)
       generateQuizzes(text)
       setScannedText(text)
+      setLocalScannedText(text) // <-- Add this line
       setMode('flashcards')
       setOcrProgress(0)
       setIsOcrLoading(false)
