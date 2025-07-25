@@ -21,7 +21,8 @@ const QUESTIONS_PER_SET = 5
 function HomePage() {
   const [mode, setMode] = useState<Mode>('home')
   const [flashcards, setFlashcards] = useState<Flashcard[]>([])
-  const [quizzes, setQuizzes] = useState<Quiz[]>([])
+  //const [quizzes, setQuizzes] = useState<Quiz[]>([])
+  //const [quizAnswers, setQuizAnswers] = useState<string[]>([]);
   const [quizCount] = useState(10)
   const [quizSetIndex] = useState(0)
   const [currentQuiz, setCurrentQuiz] = useState(0)
@@ -53,7 +54,7 @@ function HomePage() {
   }
 
   // --- Logic ---
-  const quizzesToShow = quizzes.slice(0, quizCount)
+  //const quizzesToShow = quizzes.slice(0, quizCount)
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
