@@ -3,15 +3,16 @@ import React, { useState, useRef, useEffect } from 'react'
 import Tesseract from 'tesseract.js'
 import ScanSection from './ScanSection'
 import { useAppContext } from './AppContext'
-import type { Dispatch, SetStateAction } from 'react'
+//import type { Dispatch, SetStateAction } from 'react'
 //import type { Mode } from "./page"
 
 type Mode = 'home' | 'scan' | 'flashcards' | 'quiz'
 
-type Flashcard = {
-  question: string
-  answer: string
-}
+
+//type Flashcard = {
+  //question: string
+  //answer: string
+//}
 
 type Quiz = {
   question: string
@@ -24,7 +25,7 @@ const QUESTIONS_PER_SET = 5
 function HomePage() {
   const [mode, setMode] = useState<Mode>('home')
   const [quizzes, setQuizzesState] = useState<Quiz[]>([])
-  const [quizAnswers, setQuizAnswers] = useState<string[]>([]);
+  //const [quizAnswers, setQuizAnswers] = useState<string[]>([]);
   const [quizCount] = useState(10)
   const [quizSetIndex] = useState(0)
   const [currentQuiz, setCurrentQuiz] = useState(0)
@@ -48,7 +49,7 @@ function HomePage() {
   const [localScannedText, setLocalScannedText] = useState<string | null>(null)
   const [quizScore, setQuizScore] = useState(0);
   const [quizCompleted, setQuizCompleted] = useState(false);
-  const [dictatedText, setDictatedText] = useState<string>('');
+  //const [dictatedText, setDictatedText] = useState<string>('');
   const [timedOut, setTimedOut] = useState(false)
 
   const { setFlashcards, setQuizzes, setScannedText } = useAppContext();
@@ -432,7 +433,10 @@ function HomePage() {
 
       {mode === 'home' && (
         <div className="w-full max-w-md mx-auto flex flex-col items-center gap-6 py-8 bg-white rounded-xl shadow-lg">
-          <button className="bg-green-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-green-400 w-full">
+          <button
+            className="bg-green-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-green-400 w-full"
+            onClick={startCamera}
+          >
             Scan with Camera
           </button>
           <input
@@ -518,6 +522,13 @@ function HomePage() {
             className="rounded-xl border border-green-700 shadow-lg w-full max-w-md"
           />
           <button
+            className="bg-green-700 text-white px-6 py-2 rounded-xl"
+            onClick={startCountdown}
+            disabled={countdown !== null}
+          >
+            Capture
+          </button>
+          <button
             className="bg-red-600 text-white px-6 py-2 rounded-xl"
             onClick={stopCamera}
           >
@@ -551,5 +562,6 @@ function HomePage() {
     </div>
   )
 }
+
 
 export default HomePage
