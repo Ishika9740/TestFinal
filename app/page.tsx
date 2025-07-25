@@ -1,14 +1,3 @@
-/** @type {import('tailwindcss').Config} */
-module.exports = {
-  theme: {
-    extend: {
-      fontFamily: {
-        sans: ['Inter', 'Arial', 'sans-serif'],
-      },
-    },
-  },
-}
-
 'use client'
 
 import React, { useRef, useState } from 'react'
@@ -29,12 +18,12 @@ type Mode = 'home' | 'scan' | 'flashcards' | 'quiz'
 
 const QUESTIONS_PER_SET = 5
 
-export default function HomePage() {
+function HomePage() {
   const [mode, setMode] = useState<Mode>('home')
   const [flashcards, setFlashcards] = useState<Flashcard[]>([])
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
-  const [quizCount, setQuizCount] = useState(10)
-  const [quizSetIndex, setQuizSetIndex] = useState(0)
+  const [quizCount] = useState(10)
+  const [quizSetIndex] = useState(0)
   const [currentQuiz, setCurrentQuiz] = useState(0)
   const [quizFeedback, setQuizFeedback] = useState<{
     correct: boolean
@@ -56,8 +45,8 @@ export default function HomePage() {
   const [currentFlashcard, setCurrentFlashcard] = useState(0)
   const [flipped, setFlipped] = useState(false)
   const QUESTION_TIME = 15 // seconds
-  const [timeLeft, setTimeLeft] = useState(QUESTION_TIME)
-  const [timedOut, setTimedOut] = useState(false)
+  const [timeLeft] = useState(QUESTION_TIME)
+  const [timedOut] = useState(false)
 
   // --- Styles ---
   const buttonStyle = {
@@ -79,23 +68,6 @@ export default function HomePage() {
     paddingTop: '2rem',
   }
 
-  const cardStyle = {
-    backgroundColor: '#fff', // white card
-    border: '2px solid #8b5c2e', // brown border
-    borderRadius: '8px',
-    padding: '1rem',
-    margin: '1rem',
-    width: '80%',
-    maxWidth: '400px',
-    boxShadow: '0 2px 4px rgba(46,139,87,0.08)',
-  }
-
-  const buttonRowStyle = {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: '10px',
-    marginTop: '1rem',
-  }
 
   // --- Logic ---
   const quizzesToShow = quizzes.slice(0, quizCount)
@@ -195,7 +167,7 @@ export default function HomePage() {
       setTimeout(() => {
         if (!cameraLoaded) setCameraTimeout(true)
       }, 5000)
-    } catch (err) {
+    } catch {
       setCameraError('Could not access camera.')
       setScanning(false)
     }
@@ -349,7 +321,7 @@ export default function HomePage() {
           )}
           {timedOut && (
             <p className="mt-3 font-semibold text-lg text-red-700 transition-colors duration-300">
-              ⏰ Time's up! Answer: {quiz.answer}
+              ⏰ Time&apos;s up! Answer: {quiz.answer}
             </p>
           )}
           <div className="flex justify-center gap-4 mt-4">
@@ -360,7 +332,7 @@ export default function HomePage() {
                 transition-transform duration-150 hover:scale-105 active:scale-95
                 disabled:bg-gray-300 disabled:text-gray-500
               `}
-              disabled={currentQuiz === 0 || quizFeedback || timedOut}
+              disabled={currentQuiz === 0 || !!quizFeedback || timedOut}
             >
               <span role="img" aria-label="Prev">⬅️</span> Prev
             </button>
@@ -658,9 +630,7 @@ export default function HomePage() {
                   <QuizCard />
                 )}
               <button style={buttonStyle} onClick={restartQuiz}>Restart Quiz</button>
-              <button style={buttonStyle} onClick={() => setMode('home')}>
-                Back
-              </button>
+              <button style={buttonStyle} onClick={() => setMode('home')}>Back</button>
             </>
           )}
         </div>
@@ -669,57 +639,9 @@ export default function HomePage() {
   )
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg);}
-  100% { transform: rotate(360deg);}
-}
 
-@keyframes borderPulse {
-  0% { box-shadow: 0 0 0 0 #2e8b57; border-color: #8b5c2e; }
-  100% { box-shadow: 0 0 16px 4px #2e8b5755; border-color: #2e8b57; }
-}
 
-/* Add to your file or global CSS */
-.flashcard {
-  width: 220px;
-  height: 160px;
-  position: relative;
-  perspective: 1000px;
-  margin: 0 auto;
-  outline: none;
-}
-.flashcard-inner {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  transition: transform 0.5s cubic-bezier(.4,2,.6,1);
-  transform-style: preserve-3d;
-}
-.flashcard.flipped .flashcard-inner,
-.flashcard-inner.flipped {
-  transform: rotateY(180deg);
-}
-.flashcard-front, .flashcard-back {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  backface-visibility: hidden;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(46,139,87,0.08);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  transition: box-shadow 0.2s;
-}
-.flashcard-front:hover, .flashcard-back:hover {
-  box-shadow: 0 4px 16px #2e8b5755;
-}
-.flashcard-back {
-  transform: rotateY(180deg);
-}
-.flashcard, .flashcard-front, .flashcard-back {
-  transition: box-shadow 0.2s, background 0.4s, border 0.4s;
-}
-
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+const handleVideoCanPlay = () => {
+  // Your logic here, or leave empty if not needed
+};
+export default HomePage
