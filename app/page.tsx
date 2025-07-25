@@ -257,7 +257,7 @@ function HomePage() {
     const { flashcards } = useAppContext();
     if (flashcards.length > 0) {
       return (
-        <div className="flex flex-col items-center gap-6">
+        <div className="flex flex-col items-center gap-8">
           <div className="flashcard relative cursor-pointer" tabIndex={0}
             onClick={() => setFlipped((prev) => !prev)}
             onKeyDown={e => {
@@ -265,38 +265,32 @@ function HomePage() {
             }}
           >
             <div className={`flashcard-inner${flipped ? ' flipped' : ''}`}>
-              <div className="flashcard-front bg-white">
-                <p className="font-semibold text-green-700">Q:</p>
-                <p>{flashcards[currentFlashcard].question}</p>
-                <div className="mt-4 text-brown-700 text-sm">Click to flip</div>
+              <div className="flashcard-front bg-white p-8 rounded-2xl shadow-lg min-w-[300px] min-h-[180px] flex flex-col justify-center items-center">
+                <p className="font-semibold text-green-700 text-lg mb-2">Q:</p>
+                <p className="text-xl">{flashcards[currentFlashcard].question}</p>
+                <div className="mt-4 text-brown-700 text-base">Click to flip</div>
               </div>
-              <div className="flashcard-back">
-                <p className="font-semibold text-brown-700">A:</p>
-                <p>{flashcards[currentFlashcard].answer}</p>
-                <div className="mt-4 text-green-700 text-sm">Click to flip</div>
+              <div className="flashcard-back bg-green-50 p-8 rounded-2xl shadow-lg min-w-[300px] min-h-[180px] flex flex-col justify-center items-center">
+                <p className="font-semibold text-brown-700 text-lg mb-2">A:</p>
+                <p className="text-xl">{flashcards[currentFlashcard].answer}</p>
+                <div className="mt-4 text-green-700 text-base">Click to flip</div>
               </div>
             </div>
           </div>
-          <div className="flex justify-center gap-4">
+          <div className="flex justify-center gap-6">
             <button
-              className="bg-green-700 text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 transition-transform duration-150 hover:scale-105 active:scale-95"
-              onClick={() => {
-                setCurrentFlashcard((prev: number) => Math.max(0, prev - 1));
-                setFlipped(false);
-              }}
+              className="bg-green-700 text-white px-8 py-4 text-xl rounded-2xl font-bold shadow-lg transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95"
+              onClick={() => setCurrentFlashcard((prev) => prev - 1)}
               disabled={currentFlashcard === 0}
             >
-              <span role="img" aria-label="Previous">⬅️</span> Previous
+              Previous
             </button>
             <button
-              className="bg-green-700 text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 transition-transform duration-150 hover:scale-105 active:scale-95"
-              onClick={() => {
-                setCurrentFlashcard((prev: number) => Math.min(flashcards.length - 1, prev + 1))
-                setFlipped(false);
-              }}
+              className="bg-green-700 text-white px-8 py-4 text-xl rounded-2xl font-bold shadow-lg transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95"
+              onClick={() => setCurrentFlashcard((prev) => prev + 1)}
               disabled={currentFlashcard === flashcards.length - 1}
             >
-              Next <span role="img" aria-label="Next">➡️</span>
+              Next
             </button>
           </div>
         </div>
@@ -355,12 +349,12 @@ function HomePage() {
             Time is up! The correct answer is shown.
           </div>
         )}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-4">
           {current.options.map((option, index) => (
             <button
               key={index}
               onClick={() => handleSelect(option)}
-              className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 flex items-center gap-2 justify-between
+              className={`px-8 py-4 text-xl rounded-2xl font-bold transition-all duration-200 flex items-center gap-2 justify-between
               ${selected === option ? 'bg-green-700 text-white' : 'bg-gray-100 text-green-700'}
               ${showAnswer && option === current.answer ? 'ring-2 ring-green-700' : ''}
               ${showAnswer && option === selected && option !== current.answer ? 'bg-red-500 text-white' : ''}
@@ -377,31 +371,21 @@ function HomePage() {
             </button>
           ))}
         </div>
-        <div className="flex justify-between gap-4">
+        <div className="flex justify-between gap-4 mt-4">
           <button
             onClick={handleQuizPrev}
-            className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold transition-all duration-200 hover:bg-gray-300 flex-1"
+            className="bg-gray-200 text-gray-700 px-8 py-4 text-xl rounded-2xl font-bold transition-all duration-200 hover:bg-gray-300 flex-1"
             disabled={currentQuiz === 0}
           >
             <span role="img" aria-label="Previous">⬅️</span> Previous
           </button>
           <button
             onClick={showAnswer ? handleQuizNext : handleShowAnswer}
-            className="bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-200 hover:bg-green-800 flex-1"
+            className="bg-green-700 text-white px-8 py-4 text-xl rounded-2xl font-bold transition-all duration-200 hover:bg-green-800 flex-1"
           >
             {showAnswer ? 'Next Question' : 'Show Answer'}
           </button>
         </div>
-        {showAnswer && (
-          <div className="mt-4 text-center">
-            <button
-              onClick={handleQuizNext}
-              className="bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-200 hover:bg-green-800"
-            >
-              Next Question
-            </button>
-          </div>
-        )}
       </div>
     )
   }
