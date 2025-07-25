@@ -65,18 +65,33 @@ function HomePage() {
     const file = event.target.files?.[0]
     if (file) {
       setIsOcrLoading(true)
-      Tesseract.recognize(file, 'eng', {
-        logger: m => {
-          if (m.status === 'recognizing text' && m.progress) setOcrProgress(m.progress)
-        }
-      }).then(({ data: { text } }) => {
-        generateFlashcards(text)
-        generateQuizzes(text)
-        setLocalScannedText(text)
-        setMode('flashcards')
-        setOcrProgress(0)
-        setIsOcrLoading(false)
-      })
+      const img = new window.Image()
+      img.onload = () => {
+        // Resize image
+        const targetWidth = 640
+        const scale = targetWidth / img.width
+        const targetHeight = Math.round(img.height * scale)
+        const canvas = document.createElement('canvas')
+        canvas.width = targetWidth
+        canvas.height = targetHeight
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
+        const dataUrl = canvas.toDataURL('image/png')
+        Tesseract.recognize(dataUrl, 'eng', {
+          logger: m => {
+            if (m.status === 'recognizing text' && m.progress) setOcrProgress(m.progress)
+          }
+        }).then(({ data: { text } }) => {
+          generateFlashcards(text)
+          generateQuizzes(text)
+          setLocalScannedText(text)
+          setMode('flashcards')
+          setOcrProgress(0)
+          setIsOcrLoading(false)
+        })
+      }
+      img.src = URL.createObjectURL(file)
     }
   }
 
@@ -204,11 +219,17 @@ function HomePage() {
     if (!videoRef.current || !canvasRef.current) return
     const video = videoRef.current
     const canvas = canvasRef.current
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
+
+    // Resize to a smaller width for faster OCR (e.g., 640px wide)
+    const targetWidth = 640
+    const scale = targetWidth / video.videoWidth
+    const targetHeight = Math.round(video.videoHeight * scale)
+    canvas.width = targetWidth
+    canvas.height = targetHeight
+
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    ctx.drawImage(video, 0, 0, targetWidth, targetHeight)
     setOcrProgress(0)
     setScanning(false)
     stopCamera()
@@ -216,6 +237,7 @@ function HomePage() {
     setIsOcrLoading(true)
     Tesseract.recognize(dataUrl, 'eng', {
       logger: m => {
+        // Only update progress if image is large
         if (m.status === 'recognizing text' && m.progress) setOcrProgress(m.progress)
       }
     }).then(({ data: { text } }) => {
