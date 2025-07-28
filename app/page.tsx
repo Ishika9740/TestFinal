@@ -3,6 +3,8 @@ import React, { useState, useRef, useEffect } from 'react'
 import Tesseract from 'tesseract.js'
 import ScanSection from './ScanSection'
 import { useAppContext } from './AppContext'
+import { fetchDefinition } from "../lib/dictionary"; // You'll create this file
+import { getSynonyms } from "../lib/datamuse"; 
 //import type { Dispatch, SetStateAction } from 'react'
 //import type { Mode } from "./page"
 
@@ -14,6 +16,7 @@ type Mode = 'home' | 'scan' | 'flashcards' | 'quiz'
   //answer: string
 //}
 
+
 type Quiz = {
   question: string
   options: string[]
@@ -23,6 +26,8 @@ type Quiz = {
 const QUESTIONS_PER_SET = 5
 
 function HomePage() {
+  const [ocrText, setOcrText] = useState("");
+  const [flashcards] = useState<any[]>([]);
   const [mode, setMode] = useState<Mode>('home')
   const [quizzes, setQuizzesState] = useState<Quiz[]>([])
   //const [quizAnswers, setQuizAnswers] = useState<string[]>([]);
@@ -57,6 +62,11 @@ function HomePage() {
   const handleVideoCanPlay = () => {
     setCameraLoaded(true)
   }
+// Removed duplicate handleImageUpload to fix redeclaration error
+
+// Remove duplicate generateQuizzes and shuffle declarations
+
+
 
   // --- Logic ---
   const quizzesToShow = quizzes.slice(0, quizCount)
@@ -148,7 +158,7 @@ function HomePage() {
         answer: line,
       }
     })
-    setQuizzes(quizzesGenerated)
+    setQuizzesState(quizzesGenerated)
     setQuizzesState(quizzesGenerated)
   }
 
@@ -276,6 +286,35 @@ function HomePage() {
   }
 
   // --- UI Components ---
+<div>
+  <input
+    type="file"
+    accept="image/*"
+    onChange={handleImageUpload}
+    className="mb-4"
+  />
+  <h2 className="text-xl mt-6">Flashcards</h2>
+  {flashcards.map((card, i) => (
+    <div key={i}>
+      <p><strong>Q:</strong> {card.question}</p>
+      <p><strong>A:</strong> {card.answer}</p>
+    </div>
+  ))}
+
+  <h2 className="text-xl mt-6">Quizzes</h2>
+  {quizzes.map((quiz, i) => (
+    <div key={i}>
+      <p><strong>{quiz.question}</strong></p>
+      <ul>
+        {quiz.options.map((opt, j) => (
+          <li key={j}>{opt}</li>
+        ))}
+      </ul>
+    </div>
+  ))}
+</div>
+
+
   // FlashcardList component (replace your current one)
   function FlashcardList() {
     const { flashcards } = useAppContext();
@@ -571,5 +610,10 @@ function HomePage() {
   )
 }
 
+
+export async function fetchDefinition(word: string): Promise<string> {
+  // Dummy implementation, replace with real API call if needed
+  return `Definition of ${word}`;
+}
 
 export default HomePage

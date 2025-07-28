@@ -64,19 +64,3 @@ body {
   background: #e6f4ea;
   transform: rotateY(180deg);
 }
-
-/* Tesseract OCR styles */
-.progress-bar {
-  width: 100%;
-  background: #e0e0e0;
-  border-radius: 0.5rem;
-  overflow: hidden;
-  position: relative;
-  height: 0.5rem;
-}
-
-.progress {
-  height: 100%;
-  background: #2e8b57;
-  transition: width 0.4s ease;
-}
