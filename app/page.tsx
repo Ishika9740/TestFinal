@@ -88,20 +88,20 @@ function HomePage() {
         ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
         Tesseract.recognize(dataUrl, 'eng', {
-          logger: m => {
-            if (m.status === 'recognizing text' && m.progress) setOcrProgress(m.progress)
-          }
-       }).then(({ data: { text } }) => {
-          setOcrText(text); // <-- Store OCR result in state
-          generateFlashcards(text)
-          generateQuizzes(text)
-          setScannedText(text)
-          setLocalScannedText(text)
-          setMode('flashcards')
-          setOcrProgress(0)
-          setIsOcrLoading(false)
-        })
-      }
+  logger: m => {
+    if (m.status === 'recognizing text' && m.progress) setOcrProgress(m.progress);
+  }
+})
+.then(({ data: { text } }) => {
+  alert("OCR Result:\n" + text);
+  setIsOcrLoading(false);
+})
+
+.catch((error) => {
+  console.error("OCR failed on camera:", error);
+  setIsOcrLoading(false);
+});
+
       img.src = URL.createObjectURL(file)
     }
   }
@@ -247,22 +247,27 @@ function HomePage() {
     stopCamera()
     const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
     setIsOcrLoading(true)
-    Tesseract.recognize(dataUrl, 'eng', {
-      logger: m => {
-        // Only update progress if image is large
-        if (m.status === 'recognizing text' && m.progress) setOcrProgress(m.progress)
-      }
-    }).then(({ data: { text } }) => {
-      setOcrText(text); // <-- Store OCR result in state
-      generateFlashcards(text)
-      generateQuizzes(text)
-      setScannedText(text)
-      setLocalScannedText(text) // <-- Add this line
-      setMode('flashcards')
-      setOcrProgress(0)
-      setIsOcrLoading(false)
-    })
+   Tesseract.recognize(dataUrl, 'eng', {
+  logger: m => {
+    if (m.status === 'recognizing text' && m.progress) setOcrProgress(m.progress);
   }
+})
+.then(({ data: { text } }) => {
+  console.log("OCR result from upload:", text);
+  setOcrText(text);
+  generateFlashcards(text);
+  generateQuizzes(text);
+  setScannedText(text);
+  setLocalScannedText(text);
+  setMode('flashcards');
+  setOcrProgress(0);
+  setIsOcrLoading(false);
+})
+.catch((error) => {
+  console.error("OCR failed on upload:", error);
+  setIsOcrLoading(false);
+});
+} // <-- Add this closing brace for captureAndOcr
 
   const startCountdown = () => {
     setCountdown(3)
@@ -450,19 +455,35 @@ function HomePage() {
             onCanPlay={handleVideoCanPlay}
             className="rounded-xl border border-green-700 shadow-lg w-full max-w-md"
           />
-          <button
-            className="bg-green-700 text-white px-6 py-2 rounded-xl"
-            onClick={startCountdown}
-            disabled={countdown !== null}
-          >
-            Capture
-          </button>
-          <button
-            className="bg-red-600 text-white px-6 py-2 rounded-xl"
-            onClick={stopCamera}
-          >
-            Stop Camera
-          </button>
+          <canvas
+            ref={canvasRef}
+            style={{ display: 'none' }}
+          />
+          <div className="flex gap-4 mt-2">
+            <button
+              className="bg-green-700 text-white px-6 py-2 rounded-xl"
+              onClick={startCountdown}
+              disabled={countdown !== null || isOcrLoading}
+            >
+              {isOcrLoading ? "Scanning..." : "Capture"}
+            </button>
+            <button
+              className="bg-red-600 text-white px-6 py-2 rounded-xl"
+              onClick={stopCamera}
+              disabled={isOcrLoading}
+            >
+              Stop Camera
+            </button>
+          </div>
+          {cameraError && (
+            <div className="text-red-600 font-semibold mt-2">{cameraError}</div>
+          )}
+          {countdown !== null && (
+            <div className="text-3xl font-bold text-green-700 mb-2">Capturing in {countdown}...</div>
+          )}
+          {cameraTimeout && (
+            <div className="text-red-600 font-semibold mt-2">Camera timed out. Please try again.</div>
+          )}
         </div>
       )}
 
@@ -576,5 +597,5 @@ function QuizCard({
     </div>
   );
 }
-
+}
 export default HomePage
