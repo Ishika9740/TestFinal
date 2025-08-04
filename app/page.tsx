@@ -56,7 +56,7 @@ function HomePage() {
   //const [dictatedText, setDictatedText] = useState<string>('');
   const [timedOut, setTimedOut] = useState(false)
 
-  const { setFlashcards: setFlashcardsContext, setQuizzes, setScannedText } = useAppContext();
+  const { setQuizzes, setScannedText } = useAppContext();
 
   const handleVideoCanPlay = () => {
     setCameraLoaded(true)
@@ -348,7 +348,7 @@ function HomePage() {
                 </div>
                 {flipped && (
                   <div className="mt-2 text-green-700 text-base">
-                    <strong>Definition:</strong> {definition || "No definition found."}
+                    <strong>Definition:</strong> {"No definition found."}
                   </div>
                 )}
                 <div className="flex gap-4 mt-4">
