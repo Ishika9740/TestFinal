@@ -1,21 +1,19 @@
 'use client'
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef } from 'react'
 import Tesseract from 'tesseract.js'
 import ScanSection from './ScanSection'
 import Loader from './Loader'
 import { useAppContext } from './AppContext'
-import { fetchDefinition } from "./lib/dictionary";
-import { getSynonyms } from "./lib/datamuse";
 //import type { Dispatch, SetStateAction } from 'react'
 //import type { Mode } from "./page"
 
 type Mode = 'home' | 'scan' | 'flashcards' | 'quiz'
 
 
-//type Flashcard = {
-  //question: string
-  //answer: string
-//}
+type Flashcard = {
+  question: string
+  answer: string
+}
 
 
 type Quiz = {
@@ -28,7 +26,7 @@ const QUESTIONS_PER_SET = 5
 
 function HomePage() {
   const [ocrText, setOcrText] = useState<string>("");
-  const [flashcards] = useState<any[]>([]);
+  const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [mode, setMode] = useState<Mode>('home')
   const [quizzes, setQuizzesState] = useState<Quiz[]>([])
   //const [quizAnswers, setQuizAnswers] = useState<string[]>([]);
@@ -58,7 +56,7 @@ function HomePage() {
   //const [dictatedText, setDictatedText] = useState<string>('');
   const [timedOut, setTimedOut] = useState(false)
 
-  const { setFlashcards, setQuizzes, setScannedText } = useAppContext();
+  const { setFlashcards: setFlashcardsContext, setQuizzes, setScannedText } = useAppContext();
 
   const handleVideoCanPlay = () => {
     setCameraLoaded(true)
@@ -162,7 +160,7 @@ function HomePage() {
       }
     })
     setQuizzesState(quizzesGenerated)
-    setQuizzesState(quizzesGenerated)
+    setQuizzes(quizzesGenerated) // <-- Add this line to update context
   }
 
   const shuffle = (array: string[]) => {
@@ -348,6 +346,11 @@ function HomePage() {
                     {flipped ? 'Answer (click to flip)' : 'Question (click to flip)'}
                   </div>
                 </div>
+                {flipped && (
+                  <div className="mt-2 text-green-700 text-base">
+                    <strong>Definition:</strong> {definition || "No definition found."}
+                  </div>
+                )}
                 <div className="flex gap-4 mt-4">
                   <button
                     className="bg-gray-200 text-gray-700 px-6 py-2 rounded-xl font-bold transition-all duration-200 hover:bg-gray-300"
