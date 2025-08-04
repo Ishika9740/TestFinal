@@ -27,7 +27,7 @@ type Quiz = {
 const QUESTIONS_PER_SET = 5
 
 function HomePage() {
-  const [ocrText, setOcrText] = useState("");
+  const [ocrText, setOcrText] = useState<string>("");
   const [flashcards] = useState<any[]>([]);
   const [mode, setMode] = useState<Mode>('home')
   const [quizzes, setQuizzesState] = useState<Quiz[]>([])
@@ -93,11 +93,12 @@ function HomePage() {
           logger: m => {
             if (m.status === 'recognizing text' && m.progress) setOcrProgress(m.progress)
           }
-        }).then(({ data: { text } }) => {
+       }).then(({ data: { text } }) => {
+          setOcrText(text); // <-- Store OCR result in state
           generateFlashcards(text)
           generateQuizzes(text)
           setScannedText(text)
-          setLocalScannedText(text) // <-- Add this line
+          setLocalScannedText(text)
           setMode('flashcards')
           setOcrProgress(0)
           setIsOcrLoading(false)
@@ -106,19 +107,20 @@ function HomePage() {
       img.src = URL.createObjectURL(file)
     }
   }
-
   const generateFlashcards = (text: string) => {
-    const lines = text.split('\n').filter(line => line.trim() !== '')
+    // Split text into lines and filter out empty lines
+    const lines = text.split('\n').filter(line => line.trim() !== '');
+    // Create flashcards from each line
     const cards = lines.map((line) => {
       // Extract keyword: first capitalized word or first word
-      const keywordMatch = line.match(/\b([A-Z][a-zA-Z0-9]*)\b/)
-      const keyword = keywordMatch ? keywordMatch[1] : line.split(' ')[0]
+      const keywordMatch = line.match(/\b([A-Z][a-zA-Z0-9]*)\b/);
+      const keyword = keywordMatch ? keywordMatch[1] : line.split(' ')[0];
       return {
         question: `What is "${keyword}"?`,
         answer: line,
-      }
-    })
-    setFlashcards(cards)
+      };
+    });
+    setFlashcards(cards); // Update flashcards state
   }
 
   const generateQuizzes = (text: string) => {
@@ -253,6 +255,7 @@ function HomePage() {
         if (m.status === 'recognizing text' && m.progress) setOcrProgress(m.progress)
       }
     }).then(({ data: { text } }) => {
+      setOcrText(text); // <-- Store OCR result in state
       generateFlashcards(text)
       generateQuizzes(text)
       setScannedText(text)
@@ -327,12 +330,47 @@ function HomePage() {
             {flashcards.length === 0 ? (
               <p className="text-gray-600">No flashcards generated yet.</p>
             ) : (
-              flashcards.map((card, idx) => (
-                <div key={idx} className="bg-green-50 border border-green-700 rounded-xl p-4 shadow w-full max-w-xl mb-4">
-                  <div className="font-bold text-green-800 mb-2">{card.question}</div>
-                  <div className="text-gray-800">{card.answer}</div>
+              <div className="w-full max-w-xl flex flex-col items-center">
+                <div
+                  className={`bg-green-50 border border-green-700 rounded-xl p-4 shadow w-full mb-4 cursor-pointer transition-transform duration-200 ${flipped ? 'rotate-y-180' : ''}`}
+                  onClick={() => setFlipped(f => !f)}
+                  tabIndex={0}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') setFlipped(f => !f);
+                  }}
+                >
+                  <div className="font-bold text-green-800 mb-2">
+                    {flipped
+                      ? flashcards[currentFlashcard].answer
+                      : flashcards[currentFlashcard].question}
+                  </div>
+                  <div className="text-gray-800 text-sm">
+                    {flipped ? 'Answer (click to flip)' : 'Question (click to flip)'}
+                  </div>
                 </div>
-              ))
+                <div className="flex gap-4 mt-4">
+                  <button
+                    className="bg-gray-200 text-gray-700 px-6 py-2 rounded-xl font-bold transition-all duration-200 hover:bg-gray-300"
+                    onClick={() => {
+                      setCurrentFlashcard(i => Math.max(i - 1, 0));
+                      setFlipped(false);
+                    }}
+                    disabled={currentFlashcard === 0}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    className="bg-gray-200 text-gray-700 px-6 py-2 rounded-xl font-bold transition-all duration-200 hover:bg-gray-300"
+                    onClick={() => {
+                      setCurrentFlashcard(i => Math.min(i + 1, flashcards.length - 1));
+                      setFlipped(false);
+                    }}
+                    disabled={currentFlashcard === flashcards.length - 1}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             )}
             <button
               className="bg-green-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95"
@@ -382,7 +420,7 @@ function HomePage() {
           style={{ maxHeight: '300px', minHeight: '120px', whiteSpace: 'pre-wrap', userSelect: 'text' }}
           id="scannedTextBox"
         >
-          {localScannedText || "No text scanned yet."}
+          {localScannedText || ocrText || "No text scanned yet."}
         </div>
         <button
           className="mt-4 bg-green-700 text-white px-5 py-2 rounded-lg font-semibold shadow transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95"
@@ -483,59 +521,57 @@ function QuizCard({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col gap-4">
-      <div className="text-lg font-semibold text-green-800 mb-2">
+    <div className="bg-white rounded-xl shadow-md p-6">
+      <div className="text-xl font-semibold mb-4">
+        Question {quizSetIndex * QUESTIONS_PER_SET + currentQuiz + 1}
+      </div>
+      <div className="text-lg mb-4">
         {current.question}
       </div>
-      <div className="flex flex-col gap-4">
-        {current.options.map((option, idx) => (
+      <div className="grid grid-cols-2 gap-4">
+        {current.options.map((option, index) => (
           <button
-            key={idx}
-            className={`px-8 py-4 text-xl rounded-2xl font-bold transition-all duration-200 flex items-center gap-2 justify-between
-              ${selected === option ? 'bg-green-700 text-white' : 'bg-gray-100 text-green-700'}
-              ${showAnswer && option === current.answer ? 'ring-2 ring-green-700' : ''}
-              ${showAnswer && option === selected && option !== current.answer ? 'bg-red-500 text-white' : ''}
-            `}
+            key={index}
             onClick={() => handleSelect(option)}
+            className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center
+              ${selected === option ? (current.answer === option ? 'bg-green-700 text-white' : 'bg-red-600 text-white') : 'bg-gray-200 text-gray-700'}
+              ${showAnswer && current.answer === option ? 'ring-2 ring-green-400' : ''}
+              ${showAnswer && selected === option && current.answer !== option ? 'ring-2 ring-red-400' : ''}
+            `}
             disabled={showAnswer}
           >
             {option}
-            {showAnswer && option === current.answer && (
-              <span className="text-green-300" role="img" aria-label="Correct">✔️</span>
-            )}
-            {showAnswer && option === selected && option !== current.answer && (
-              <span className="text-red-300" role="img" aria-label="Incorrect">❌</span>
-            )}
           </button>
         ))}
       </div>
-      <div className="flex justify-between gap-4 mt-4">
+      {showAnswer && (
+        <div className="mt-4 text-center">
+          {current.answer === selected ? (
+            <span className="text-green-700 font-semibold">Correct!</span>
+          ) : (
+            <span className="text-red-600 font-semibold">
+              Incorrect! The correct answer is:{" "}
+              <span className="font-bold">{current.answer}</span>
+            </span>
+          )}
+        </div>
+      )}
+      <div className="flex justify-between gap-4 mt-6">
         <button
           onClick={handleQuizPrev}
-          className="bg-gray-200 text-gray-700 px-8 py-4 text-xl rounded-2xl font-bold transition-all duration-200 hover:bg-gray-300 flex-1"
-          disabled={currentQuiz === 0}
+          className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold transition-all duration-200 hover:bg-gray-300"
         >
-          ⬅️ Previous
+          Previous
         </button>
         <button
-          onClick={showAnswer ? handleQuizNext : () => setShowAnswer(true)}
-          className="bg-green-700 text-white px-8 py-4 text-xl rounded-2xl font-bold transition-all duration-200 hover:bg-green-800 flex-1"
+          onClick={handleQuizNext}
+          className="flex-1 bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-200 hover:bg-green-800"
         >
-          {showAnswer ? 'Next Question' : 'Show Answer'}
+          Next
         </button>
       </div>
     </div>
   );
 }
-
-
-//export async function fetchDefinition(word: string): Promise<string> {
-  // Dummy implementation, replace with real API call if needed
-  //return `Definition of ${word}`;
-//}
-
-//export async function getSynonyms(word: string): Promise<string[]> {
-  // ...
-//}
 
 export default HomePage
