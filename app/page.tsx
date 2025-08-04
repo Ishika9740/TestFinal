@@ -2,9 +2,10 @@
 import React, { useState, useRef, useEffect } from 'react'
 import Tesseract from 'tesseract.js'
 import ScanSection from './ScanSection'
+import Loader from './Loader'
 import { useAppContext } from './AppContext'
-import { fetchDefinition } from "../lib/dictionary"; // You'll create this file
-import { getSynonyms } from "../lib/datamuse"; 
+import { fetchDefinition } from "./lib/dictionary";
+import { getSynonyms } from "./lib/datamuse";
 //import type { Dispatch, SetStateAction } from 'react'
 //import type { Mode } from "./page"
 
@@ -286,192 +287,6 @@ function HomePage() {
   }
 
   // --- UI Components ---
-<div>
-  <input
-    type="file"
-    accept="image/*"
-    onChange={handleImageUpload}
-    className="mb-4"
-  />
-  <h2 className="text-xl mt-6">Flashcards</h2>
-  {flashcards.map((card, i) => (
-    <div key={i}>
-      <p><strong>Q:</strong> {card.question}</p>
-      <p><strong>A:</strong> {card.answer}</p>
-    </div>
-  ))}
-
-  <h2 className="text-xl mt-6">Quizzes</h2>
-  {quizzes.map((quiz, i) => (
-    <div key={i}>
-      <p><strong>{quiz.question}</strong></p>
-      <ul>
-        {quiz.options.map((opt, j) => (
-          <li key={j}>{opt}</li>
-        ))}
-      </ul>
-    </div>
-  ))}
-</div>
-
-
-  // FlashcardList component (replace your current one)
-  function FlashcardList() {
-    const { flashcards } = useAppContext();
-    if (flashcards.length > 0) {
-      return (
-        <div className="flex flex-col items-center gap-8">
-          <div className="flashcard relative cursor-pointer" tabIndex={0}
-            onClick={() => setFlipped((prev) => !prev)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') setFlipped((prev) => !prev)
-            }}
-          >
-            <div className={`flashcard-inner${flipped ? ' flipped' : ''}`}>
-              <div className="flashcard-front bg-white p-8 rounded-2xl shadow-lg min-w-[300px] min-h-[180px] flex flex-col justify-center items-center">
-                <p className="font-semibold text-green-700 text-lg mb-2">Q:</p>
-                <p className="text-xl">{flashcards[currentFlashcard].question}</p>
-                <div className="mt-4 text-brown-700 text-base">Click to flip</div>
-              </div>
-              <div className="flashcard-back bg-green-50 p-8 rounded-2xl shadow-lg min-w-[300px] min-h-[180px] flex flex-col justify-center items-center">
-                <p className="font-semibold text-brown-700 text-lg mb-2">A:</p>
-                <p className="text-xl">{flashcards[currentFlashcard].answer}</p>
-                <div className="mt-4 text-green-700 text-base">Click to flip</div>
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-center gap-6">
-            <button
-              className="bg-green-700 text-white px-8 py-4 text-xl rounded-2xl font-bold shadow-lg transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95"
-              onClick={() => setCurrentFlashcard((prev) => prev - 1)}
-              disabled={currentFlashcard === 0}
-            >
-              Previous
-            </button>
-            <button
-              className="bg-green-700 text-white px-8 py-4 text-xl rounded-2xl font-bold shadow-lg transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95"
-              onClick={() => setCurrentFlashcard((prev) => prev + 1)}
-              disabled={currentFlashcard === flashcards.length - 1}
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )
-    }
-    return <div className="text-center text-brown-700">No flashcards available.</div>
-  }
-
-  // QuizCard component
-  function QuizCard() {
-    const [selected, setSelected] = useState<string | null>(null)
-    const [showAnswer, setShowAnswer] = useState(false)
-    const [timeLeft, setTimeLeft] = useState(15) // 15 seconds per question
-
-    useEffect(() => {
-      if (showAnswer) return
-      setTimeLeft(15)
-      setTimedOut(false)
-      const timer = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer)
-            setTimedOut(true)
-            setShowAnswer(true)
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-      return () => clearInterval(timer)
-    }, [currentQuiz, showAnswer])
-
-    const current = quizzesToShow[quizSetIndex * QUESTIONS_PER_SET + currentQuiz]
-
-    const handleSelect = (option: string) => {
-      if (showAnswer || timedOut) return
-      setSelected(option)
-      handleAnswer(option)
-      setShowAnswer(true)
-    }
-
-    const handleShowAnswer = () => {
-      setShowAnswer(true)
-    }
-
-    return (
-      <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col gap-4">
-        <div className="text-lg font-semibold text-green-800">
-          {current.question}
-        </div>
-        <div className="text-right text-red-600 font-bold text-lg">
-          Time left: {timeLeft}s
-        </div>
-        {timedOut && (
-          <div className="text-center text-red-600 font-bold mb-2">
-            Time is up! The correct answer is shown.
-          </div>
-        )}
-        <div className="flex flex-col gap-4">
-          {current.options.map((option, index) => (
-            <button
-              key={index}
-              onClick={() => handleSelect(option)}
-              className={`px-8 py-4 text-xl rounded-2xl font-bold transition-all duration-200 flex items-center gap-2 justify-between
-              ${selected === option ? 'bg-green-700 text-white' : 'bg-gray-100 text-green-700'}
-              ${showAnswer && option === current.answer ? 'ring-2 ring-green-700' : ''}
-              ${showAnswer && option === selected && option !== current.answer ? 'bg-red-500 text-white' : ''}
-              `}
-              disabled={showAnswer}
-            >
-              {option}
-              {showAnswer && option === current.answer && (
-                <span className="text-green-300" role="img" aria-label="Correct"> ✔️</span>
-              )}
-              {showAnswer && option === selected && option !== current.answer && (
-                <span className="text-red-300" role="img" aria-label="Incorrect"> ❌</span>
-              )}
-            </button>
-          ))}
-        </div>
-        <div className="flex justify-between gap-4 mt-4">
-          <button
-            onClick={handleQuizPrev}
-            className="bg-gray-200 text-gray-700 px-8 py-4 text-xl rounded-2xl font-bold transition-all duration-200 hover:bg-gray-300 flex-1"
-            disabled={currentQuiz === 0}
-          >
-            <span role="img" aria-label="Previous">⬅️</span> Previous
-          </button>
-          <button
-            onClick={showAnswer ? handleQuizNext : handleShowAnswer}
-            className="bg-green-700 text-white px-8 py-4 text-xl rounded-2xl font-bold transition-all duration-200 hover:bg-green-800 flex-1"
-          >
-            {showAnswer ? 'Next Question' : 'Show Answer'}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // Loader component
-  function Loader({ message, progress }: { message: string; progress?: number }) {
-    return (
-      <div className="w-full max-w-md mx-auto my-4 flex flex-col items-center">
-        <div className="text-green-700 font-semibold mb-2">{message}</div>
-        {typeof progress === 'number' && (
-          <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
-            <div
-              className="bg-green-700 h-3 rounded-full"
-              style={{ width: `${progress * 100}%` }}
-            />
-          </div>
-        )}
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-green-700 border-solid" />
-      </div>
-    )
-  }
-
-  // --- Main Render ---
   return (
     <div className="min-h-screen bg-white font-sans text-lg flex flex-col items-center justify-center px-2 sm:px-4 md:px-8">
       <h1 className="text-4xl sm:text-5xl font-bold text-green-800 text-center bg-brown-700 py-6 rounded-b-2xl mb-8 w-full max-w-2xl mx-auto">
@@ -508,7 +323,25 @@ function HomePage() {
 
       {mode === 'flashcards' && (
         <div className="w-full max-w-4xl mx-auto px-2 sm:px-4 md:px-8">
-          <FlashcardList />
+          <div className="flex flex-col items-center gap-6 py-8">
+            {flashcards.length === 0 ? (
+              <p className="text-gray-600">No flashcards generated yet.</p>
+            ) : (
+              flashcards.map((card, idx) => (
+                <div key={idx} className="bg-green-50 border border-green-700 rounded-xl p-4 shadow w-full max-w-xl mb-4">
+                  <div className="font-bold text-green-800 mb-2">{card.question}</div>
+                  <div className="text-gray-800">{card.answer}</div>
+                </div>
+              ))
+            )}
+            <button
+              className="bg-green-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:bg-green-800 hover:scale-105 active:scale-95"
+              onClick={() => setMode('quiz')}
+              disabled={flashcards.length === 0}
+            >
+              Start Quiz
+            </button>
+          </div>
         </div>
       )}
       {mode === 'quiz' && (
@@ -527,7 +360,15 @@ function HomePage() {
           ) : (
             <>
               <p className="text-2xl font-bold text-green-700 mb-4">Your score: {quizScore}</p>
-              <QuizCard />
+              <QuizCard
+                quizzesToShow={quizzesToShow}
+                currentQuiz={currentQuiz}
+                quizSetIndex={quizSetIndex}
+                QUESTIONS_PER_SET={QUESTIONS_PER_SET}
+                handleAnswer={handleAnswer}
+                handleQuizPrev={handleQuizPrev}
+                handleQuizNext={handleQuizNext}
+              />
             </>
           )}
         </div>
@@ -610,10 +451,91 @@ function HomePage() {
   )
 }
 
+function QuizCard({
+  quizzesToShow,
+  currentQuiz,
+  quizSetIndex,
+  QUESTIONS_PER_SET,
+  handleAnswer,
+  handleQuizPrev,
+  handleQuizNext
+}: {
+  quizzesToShow: Quiz[],
+  currentQuiz: number,
+  quizSetIndex: number,
+  QUESTIONS_PER_SET: number,
+  handleAnswer: (option: string) => void,
+  handleQuizPrev: () => void,
+  handleQuizNext: () => void
+}) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const [showAnswer, setShowAnswer] = useState(false);
 
-export async function fetchDefinition(word: string): Promise<string> {
-  // Dummy implementation, replace with real API call if needed
-  return `Definition of ${word}`;
+  const current = quizzesToShow[quizSetIndex * QUESTIONS_PER_SET + currentQuiz];
+
+  if (!current) return <div>No quiz question available.</div>;
+
+  const handleSelect = (option: string) => {
+    if (showAnswer) return;
+    setSelected(option);
+    handleAnswer(option);
+    setShowAnswer(true);
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col gap-4">
+      <div className="text-lg font-semibold text-green-800 mb-2">
+        {current.question}
+      </div>
+      <div className="flex flex-col gap-4">
+        {current.options.map((option, idx) => (
+          <button
+            key={idx}
+            className={`px-8 py-4 text-xl rounded-2xl font-bold transition-all duration-200 flex items-center gap-2 justify-between
+              ${selected === option ? 'bg-green-700 text-white' : 'bg-gray-100 text-green-700'}
+              ${showAnswer && option === current.answer ? 'ring-2 ring-green-700' : ''}
+              ${showAnswer && option === selected && option !== current.answer ? 'bg-red-500 text-white' : ''}
+            `}
+            onClick={() => handleSelect(option)}
+            disabled={showAnswer}
+          >
+            {option}
+            {showAnswer && option === current.answer && (
+              <span className="text-green-300" role="img" aria-label="Correct">✔️</span>
+            )}
+            {showAnswer && option === selected && option !== current.answer && (
+              <span className="text-red-300" role="img" aria-label="Incorrect">❌</span>
+            )}
+          </button>
+        ))}
+      </div>
+      <div className="flex justify-between gap-4 mt-4">
+        <button
+          onClick={handleQuizPrev}
+          className="bg-gray-200 text-gray-700 px-8 py-4 text-xl rounded-2xl font-bold transition-all duration-200 hover:bg-gray-300 flex-1"
+          disabled={currentQuiz === 0}
+        >
+          ⬅️ Previous
+        </button>
+        <button
+          onClick={showAnswer ? handleQuizNext : () => setShowAnswer(true)}
+          className="bg-green-700 text-white px-8 py-4 text-xl rounded-2xl font-bold transition-all duration-200 hover:bg-green-800 flex-1"
+        >
+          {showAnswer ? 'Next Question' : 'Show Answer'}
+        </button>
+      </div>
+    </div>
+  );
 }
+
+
+//export async function fetchDefinition(word: string): Promise<string> {
+  // Dummy implementation, replace with real API call if needed
+  //return `Definition of ${word}`;
+//}
+
+//export async function getSynonyms(word: string): Promise<string[]> {
+  // ...
+//}
 
 export default HomePage
