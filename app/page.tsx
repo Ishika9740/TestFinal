@@ -70,6 +70,7 @@ function HomePage() {
   // --- Logic ---
   const quizzesToShow = quizzes.slice(0, quizCount)
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
