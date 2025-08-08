@@ -595,8 +595,8 @@ function QuizCard({
           Next
         </button>
       </div>
+      {}
     </div>
   );
 }
-}
-export default HomePage
+export default HomePage;
