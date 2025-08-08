@@ -1,5 +1,6 @@
 'use client'
 import React, { useState, useRef } from 'react'
+import type { JSX } from 'react'
 import Tesseract from 'tesseract.js'
 import ScanSection from './ScanSection'
 import Loader from './Loader'
@@ -268,7 +269,7 @@ function HomePage() {
   console.error("OCR failed on upload:", error);
   setIsOcrLoading(false);
 });
-} // <-- Add this closing brace for captureAndOcr
+  } // <-- Correct placement of closing brace for captureAndOcr
 
   const startCountdown = () => {
     setCountdown(3)
@@ -595,8 +596,8 @@ function QuizCard({
           Next
         </button>
       </div>
-      {}
     </div>
   );
 }
+
 export default HomePage;
