@@ -25,23 +25,23 @@ type Quiz = {
 
 const QUESTIONS_PER_SET = 5
 
-function HomePage() {
+function HomePage(): React.ReactElement {
   const [ocrText, setOcrText] = useState<string>("");
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
-  const [mode, setMode] = useState<Mode>('home')
-  const [quizzes, setQuizzesState] = useState<Quiz[]>([])
-  //const [quizAnswers, setQuizAnswers] = useState<string[]>([]);
-  const [quizCount] = useState(10)
-  const [quizSetIndex] = useState(0)
-  const [currentQuiz, setCurrentQuiz] = useState(0)
+  const [mode, setMode] = useState<Mode>('home');
+  const [quizzes, setQuizzesState] = useState<Quiz[]>([]);
+  // const [quizAnswers, setQuizAnswers] = useState<string[]>([]);
+  const [quizCount] = useState(10);
+  const [quizSetIndex] = useState(0);
+  const [currentQuiz, setCurrentQuiz] = useState(0);
   const [quizFeedback, setQuizFeedback] = useState<{
-    correct: boolean
-    selected: string
-    answer: string
-  } | null>(null)
-  const [scanning, setScanning] = useState(false)
-  const [ocrProgress, setOcrProgress] = useState(0)
-  const [isOcrLoading, setIsOcrLoading] = useState(false)
+    correct: boolean;
+    selected: string;
+    answer: string;
+  } | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [isOcrLoading, setIsOcrLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -65,8 +65,6 @@ function HomePage() {
 // Removed duplicate handleImageUpload to fix redeclaration error
 
 // Remove duplicate generateQuizzes and shuffle declarations
-
-
 
   // --- Logic ---
   const quizzesToShow = quizzes.slice(0, quizCount)
@@ -95,9 +93,17 @@ function HomePage() {
   }
 })
 .then(({ data: { text } }) => {
-  alert("OCR Result:\n" + text);
+  console.log("OCR result from upload:", text);
+  setOcrText(text);
+  generateFlashcards(text);
+  generateQuizzes(text);
+  setScannedText(text);
+  setLocalScannedText(text);
+  setMode('flashcards');
+  setOcrProgress(0);
   setIsOcrLoading(false);
 })
+
 
 .catch((error) => {
   console.error("OCR failed on camera:", error);
@@ -599,5 +605,4 @@ function QuizCard({
     </div>
   );
 }
-
 export default HomePage;
