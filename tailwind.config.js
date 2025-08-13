@@ -11,3 +11,11 @@ module.exports = {
   plugins: [],
 }
 
+// postcss.config.js
+export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
+

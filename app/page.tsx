@@ -25,7 +25,7 @@ type Quiz = {
 
 const QUESTIONS_PER_SET = 5
 
-function HomePage(): React.ReactElement {
+function HomePage(): JSX.Element {
   const [ocrText, setOcrText] = useState<string>("");
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [mode, setMode] = useState<Mode>('home');
@@ -62,14 +62,11 @@ function HomePage(): React.ReactElement {
   const handleVideoCanPlay = () => {
     setCameraLoaded(true)
   }
-// Removed duplicate handleImageUpload to fix redeclaration error
-
-// Remove duplicate generateQuizzes and shuffle declarations
 
   // --- Logic ---
   const quizzesToShow = quizzes.slice(0, quizCount)
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
@@ -88,28 +85,26 @@ function HomePage(): React.ReactElement {
         ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
         Tesseract.recognize(dataUrl, 'eng', {
-  logger: m => {
-    if (m.status === 'recognizing text' && m.progress) setOcrProgress(m.progress);
-  }
-})
-.then(({ data: { text } }) => {
-  console.log("OCR result from upload:", text);
-  setOcrText(text);
-  generateFlashcards(text);
-  generateQuizzes(text);
-  setScannedText(text);
-  setLocalScannedText(text);
-  setMode('flashcards');
-  setOcrProgress(0);
-  setIsOcrLoading(false);
-})
-
-
-.catch((error) => {
-  console.error("OCR failed on camera:", error);
-  setIsOcrLoading(false);
-});
-
+          logger: m => {
+            if (m.status === 'recognizing text' && m.progress) setOcrProgress(m.progress);
+          }
+        })
+        .then(({ data: { text } }) => {
+          console.log("OCR result from upload:", text);
+          setOcrText(text);
+          generateFlashcards(text);
+          generateQuizzes(text);
+          setScannedText(text);
+          setLocalScannedText(text);
+          setMode('flashcards');
+          setOcrProgress(0);
+          setIsOcrLoading(false);
+        })
+        .catch((error) => {
+          console.error("OCR failed on camera:", error);
+          setIsOcrLoading(false);
+        });
+      }
       img.src = URL.createObjectURL(file)
     }
   }
@@ -255,27 +250,27 @@ function HomePage(): React.ReactElement {
     stopCamera()
     const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
     setIsOcrLoading(true)
-   Tesseract.recognize(dataUrl, 'eng', {
-  logger: m => {
-    if (m.status === 'recognizing text' && m.progress) setOcrProgress(m.progress);
+    Tesseract.recognize(dataUrl, 'eng', {
+      logger: m => {
+        if (m.status === 'recognizing text' && m.progress) setOcrProgress(m.progress);
+      }
+    })
+    .then(({ data: { text } }) => {
+      console.log("OCR result from upload:", text);
+      setOcrText(text);
+      generateFlashcards(text);
+      generateQuizzes(text);
+      setScannedText(text);
+      setLocalScannedText(text);
+      setMode('flashcards');
+      setOcrProgress(0);
+      setIsOcrLoading(false);
+    })
+    .catch((error) => {
+      console.error("OCR failed on upload:", error);
+      setIsOcrLoading(false);
+    });
   }
-})
-.then(({ data: { text } }) => {
-  console.log("OCR result from upload:", text);
-  setOcrText(text);
-  generateFlashcards(text);
-  generateQuizzes(text);
-  setScannedText(text);
-  setLocalScannedText(text);
-  setMode('flashcards');
-  setOcrProgress(0);
-  setIsOcrLoading(false);
-})
-.catch((error) => {
-  console.error("OCR failed on upload:", error);
-  setIsOcrLoading(false);
-});
-  } // <-- Correct placement of closing brace for captureAndOcr
 
   const startCountdown = () => {
     setCountdown(3)
